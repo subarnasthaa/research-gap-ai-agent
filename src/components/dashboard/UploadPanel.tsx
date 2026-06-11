@@ -237,8 +237,9 @@ export default function UploadPanel() {
       store.setProgress(55);
       store.setCurrentStep('Enhancing gaps with AI...');
 
-      // Step 4: AI-enhanced gaps
+      // Step 4: AI-enhanced gaps (using Research Gap Extraction Agent)
       let aiGaps: ResearchGap[] = [];
+      let agentGapOutput: Record<string, unknown> | null = null;
       try {
         const gapsRes = await fetch('/api/analyze', {
           method: 'POST',
@@ -251,22 +252,8 @@ export default function UploadPanel() {
         });
         const gapsData = await gapsRes.json();
         if (gapsData.success && gapsData.gaps?.length > 0) {
-          aiGaps = gapsData.gaps.map(
-            (g: Record<string, unknown>, i: number) =>
-              ({
-                id: generateId(),
-                description: g.description || '',
-                gapType: g.gapType || 'limited_scope',
-                affectedPapers: g.affectedPapers || papers.map((p) => p.id),
-                affectedPaperTitles:
-                  g.affectedPaperTitles || papers.map((p) => p.title),
-                severityScore: g.severityScore || 5,
-                noveltyScore: g.noveltyScore || 50,
-                explanation: g.explanation || '',
-                whyItIsAGap: g.whyItIsAGap || '',
-                supportingEvidence: g.supportingEvidence || [],
-              }) as ResearchGap
-          );
+          aiGaps = gapsData.gaps;
+          agentGapOutput = gapsData.agentOutput || null;
         }
       } catch {
         // AI gap enhancement failed — continue with rule-based only
@@ -275,7 +262,7 @@ export default function UploadPanel() {
       store.setProgress(75);
       store.setCurrentStep('Enhancing ideas with AI...');
 
-      // Step 5: AI-enhanced ideas
+      // Step 5: AI-enhanced ideas (using Research Idea Generation Agent)
       let aiIdeas: ResearchIdea[] = [];
       try {
         const mergedGaps = aiGaps.length > 0 ? aiGaps : gaps;
@@ -284,26 +271,13 @@ export default function UploadPanel() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             type: 'ideas',
-            data: { papers, gaps: mergedGaps },
+            data: { papers, gaps: mergedGaps, agentOutput: agentGapOutput },
             field: selectedField,
           }),
         });
         const ideasData = await ideasRes.json();
         if (ideasData.success && ideasData.ideas?.length > 0) {
-          aiIdeas = ideasData.ideas.map(
-            (idea: Record<string, unknown>) =>
-              ({
-                id: generateId(),
-                title: idea.title || 'Untitled Idea',
-                description: idea.description || '',
-                methodology: idea.methodology || '',
-                expectedContribution: idea.expectedContribution || '',
-                difficulty: idea.difficulty || 'medium',
-                relatedGaps: idea.relatedGaps || [],
-                noveltyScore: idea.noveltyScore || 50,
-                feasibilityScore: idea.feasibilityScore || 50,
-              }) as ResearchIdea
-          );
+          aiIdeas = ideasData.ideas;
         }
       } catch {
         // AI idea enhancement failed — continue with rule-based only

@@ -29,6 +29,7 @@ export interface ResearchGap {
   explanation: string;
   whyItIsAGap: string;
   supportingEvidence: string[];
+  isPriority?: boolean; // flagged by AI agent as priority gap
 }
 
 export type GapType =
