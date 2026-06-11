@@ -1,0 +1,1459 @@
+     1→import { randomUUID } from 'crypto';
+     2→import type { ExtractedPaper, ResearchGap, GapType } from './types';
+     3→
+     4→// ─── Limitation Phrase Patterns ─────────────────────────────────────────────
+     5→// Each pattern maps to a preferred GapType and a base severity weight (1-10).
+     6→const LIMITATION_PATTERNS: Array<{
+     7→  pattern: RegExp;
+     8→  gapType: GapType;
+     9→  baseSeverity: number;
+    10→  noveltyHint: number; // 0-100 base novelty for this category
+    11→  label: string;
+    12→}> = [
+    13→  {
+    14→    pattern: /this study is limited\s+to\b/i,
+    15→    gapType: 'limited_scope',
+    16→    baseSeverity: 7,
+    17→    noveltyHint: 55,
+    18→    label: 'Study scope limitation',
+    19→  },
+    20→  {
+    21→    pattern: /limited\s+to\s+(?:a\s+)?(?:single|one|only|small|specific)\b/i,
+    22→    gapType: 'limited_scope',
+    23→    baseSeverity: 7,
+    24→    noveltyHint: 50,
+    25→    label: 'Limited scope',
+    26→  },
+    27→  {
+    28→    pattern: /small\s+sample/i,
+    29→    gapType: 'small_sample_size',
+    30→    baseSeverity: 8,
+    31→    noveltyHint: 45,
+    32→    label: 'Small sample size',
+    33→  },
+    34→  {
+    35→    pattern: /limited\s+data/i,
+    36→    gapType: 'small_sample_size',
+    37→    baseSeverity: 7,
+    38→    noveltyHint: 50,
+    39→    label: 'Limited data',
+    40→  },
+    41→  {
+    42→    pattern: /lack\s+of\b/i,
+    43→    gapType: 'missing_dataset',
+    44→    baseSeverity: 7,
+    45→    noveltyHint: 60,
+    46→    label: 'Lack of resource',
+    47→  },
+    48→  {
+    49→    pattern: /insufficient\s+(?:data|samples|evidence|coverage)/i,
+    50→    gapType: 'small_sample_size',
+    51→    baseSeverity: 7,
+    52→    noveltyHint: 50,
+    53→    label: 'Insufficient data',
+    54→  },
+    55→  {
+    56→    pattern: /not\s+(?:addressed|investigated|explored|evaluated|assessed|considered|examined|studied)\b/i,
+    57→    gapType: 'missing_edge_case',
+    58→    baseSeverity: 7,
+    59→    noveltyHint: 65,
+    60→    label: 'Unaddressed aspect',
+    61→  },
+    62→  {
+    63→    pattern: /was\s+not\s+assessed/i,
+    64→    gapType: 'missing_edge_case',
+    65→    baseSeverity: 6,
+    66→    noveltyHint: 60,
+    67→    label: 'Not assessed',
+    68→  },
+    69→  {
+    70→    pattern: /we\s+did\s+not\b/i,
+    71→    gapType: 'limited_scope',
+    72→    baseSeverity: 6,
+    73→    noveltyHint: 55,
+    74→    label: 'Self-acknowledged omission',
+    75→  },
+    76→  {
+    77→    pattern: /beyond\s+the\s+scope/i,
+    78→    gapType: 'limited_scope',
+    79→    baseSeverity: 5,
+    80→    noveltyHint: 50,
+    81→    label: 'Beyond scope',
+    82→  },
+    83→  {
+    84→    pattern: /remains?\s+unclear/i,
+    85→    gapType: 'missing_edge_case',
+    86→    baseSeverity: 7,
+    87→    noveltyHint: 70,
+    88→    label: 'Unclear aspect',
+    89→  },
+    90→  {
+    91→    pattern: /further\s+investigation/i,
+    92→    gapType: 'missing_edge_case',
+    93→    baseSeverity: 6,
+    94→    noveltyHint: 60,
+    95→    label: 'Needs further investigation',
+    96→  },
+    97→  {
+    98→    pattern: /future\s+(?:work|research|studies|investigations)/i,
+    99→    gapType: 'missing_edge_case',
+   100→    baseSeverity: 5,
+   101→    noveltyHint: 55,
+   102→    label: 'Future work suggested',
+   103→  },
+   104→  {
+   105→    pattern: /needs?\s+to\s+be\s+investigated/i,
+   106→    gapType: 'missing_edge_case',
+   107→    baseSeverity: 7,
+   108→    noveltyHint: 65,
+   109→    label: 'Needs investigation',
+   110→  },
+   111→  {
+   112→    pattern: /however,?\s+(?:our|the|this)\s+(?:study|analysis|approach|method|work)/i,
+   113→    gapType: 'limited_scope',
+   114→    baseSeverity: 6,
+   115→    noveltyHint: 55,
+   116→    label: 'Self-identified caveat',
+   117→  },
+   118→  {
+   119→    pattern: /however\b/i,
+   120→    gapType: 'limited_scope',
+   121→    baseSeverity: 4,
+   122→    noveltyHint: 40,
+   123→    label: 'Contrasting limitation',
+   124→  },
+   125→];
+   126→
+   127→// ─── Helper Utilities ────────────────────────────────────────────────────────
+   128→
+   129→/** Extract the sentence containing the match from text. */
+   130→function extractSentence(text: string, matchIndex: number, matchLength: number): string {
+   131→  // Walk backwards to find start of sentence
+   132→  let start = matchIndex;
+   133→  while (start > 0 && text[start - 1] !== '.' && text[start - 1] !== '!' && text[start - 1] !== '?') {
+   134→    start--;
+   135→  }
+   136→  // Walk forward to find end of sentence
+   137→  let end = matchIndex + matchLength;
+   138→  while (end < text.length && text[end] !== '.' && text[end] !== '!' && text[end] !== '?') {
+   139→    end++;
+   140→  }
+   141→  if (end < text.length) end++; // include the terminal punctuation
+   142→  return text.slice(start, end).trim();
+   143→}
+   144→
+   145→/** Compute a rough keyword-overlap Jaccard similarity between two string arrays. */
+   146→function keywordSimilarity(a: string[], b: string[]): number {
+   147→  const setA = new Set(a.map((k) => k.toLowerCase()));
+   148→  const setB = new Set(b.map((k) => k.toLowerCase()));
+   149→  if (setA.size === 0 && setB.size === 0) return 0;
+   150→  let intersection = 0;
+   151→  Array.from(setA).forEach((k) => {
+   152→    if (setB.has(k)) intersection++;
+   153→  });
+   154→  const union = new Set(Array.from(setA).concat(Array.from(setB))).size;
+   155→  return union === 0 ? 0 : intersection / union;
+   156→}
+   157→
+   158→/** Extract potential domain/topic words from a paper's metadata. */
+   159→function extractDomainSignals(paper: ExtractedPaper): string[] {
+   160→  const tokens: string[] = [];
+   161→  const sources = [paper.researchFocus, paper.abstract, paper.methodology, paper.conclusion];
+   162→  for (const src of sources) {
+   163→    if (!src) continue;
+   164→    // Grab capitalized multi-word phrases and individual keywords
+   165→    const matches = src.match(/\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b/g);
+   166→    if (matches) tokens.push(...matches);
+   167→  }
+   168→  tokens.push(...paper.keywords, ...paper.topics);
+   169→  // Deduplicate and lowercase
+   170→  return Array.from(new Set(tokens.map((t) => t.toLowerCase())));
+   171→}
+   172→
+   173→/** Detect dataset mentions in text. */
+   174→function extractDatasetMentions(text: string): string[] {
+   175→  // Common dataset patterns
+   176→  const patterns = [
+   177→    /\b([A-Z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)*)\s+dataset\b/gi,
+   178→    /\bon\s+(?:the\s+)?([A-Z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)*)\b/g,
+   179→    /\b(?:dataset|benchmark|corpus)\s*(?:of|:)?\s*([A-Z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)*)\b/gi,
+   180→    /\b([A-Z]{2,}(?:-[A-Za-z0-9]+)*)\b/g, // Acronyms like GLUE, SQuAD, MNIST
+   181→  ];
+   182→
+   183→  const knownDatasets = new Set([
+   184→    'MNIST', 'CIFAR-10', 'CIFAR-100', 'ImageNet', 'COCO', 'Pascal', 'VOC',
+   185→    'SQuAD', 'GLUE', 'SuperGLUE', 'SNLI', 'MNLI', 'QQP', 'QNL', 'RTE',
+   186→    'SST', 'SST-2', 'CoLA', 'STS-B', 'MRPC', 'WNLI',
+   187→    'PTB', 'WikiText', 'Penn', 'Treebank', 'LAMBADA',
+   188→    'LibriSpeech', 'VoxCeleb', 'TIMIT',
+   189→    'UCI', 'KDD', 'Adult', 'Census',
+   190→    'MIMIC', 'PhysioNet', 'UKBiobank',
+   191→    'NYU', 'MIT', 'Stanford',
+   192→    'GOV.UK', 'EuroParl', 'WMT',
+   193→    'OpenWebText', 'CommonCrawl', 'ThePile',
+   194→    'LAION', 'ADE20K', 'Cityscapes', 'KITTI',
+   195→    'CelebA', 'LFW', 'CASIA',
+   196→    'CUSTOM',
+   197→  ]);
+   198→
+   199→  const mentions = new Set<string>();
+   200→  for (const pattern of patterns) {
+   201→    let match: RegExpExecArray | null;
+   202→    const regex = new RegExp(pattern.source, pattern.flags);
+   203→    while ((match = regex.exec(text)) !== null) {
+   204→      const candidate = match[1];
+   205→      if (candidate && candidate.length >= 2 && candidate.length <= 30) {
+   206→        mentions.add(candidate);
+   207→      }
+   208→    }
+   209→  }
+   210→
+   211→  // Also check known datasets by name
+   212→  Array.from(knownDatasets).forEach((ds) => {
+   213→    if (text.toLowerCase().includes(ds.toLowerCase())) {
+   214→      mentions.add(ds);
+   215→    }
+   216→  });
+   217→
+   218→  return Array.from(mentions);
+   219→}
+   220→
+   221→/** Detect methodology-related terms. */
+   222→function extractMethodologyTerms(text: string): string[] {
+   223→  const methodPatterns = [
+   224→    /\b(?:CNN|RNN|LSTM|GRU|Transformer|BERT|GPT|GAN|VAE|Autoencoder|ResNet|VGG|EfficientNet|ViT|DeiT|Swin|YOLO|SSD|Faster\s+R-CNN|Mask\s+R-CNN|U-Net|BART|T5|RoBERTa|XLNet|ALBERT|DistilBERT|ELECTRA|DeBERTa)\b/gi,
+   225→    /\b(?:random\s+forest|decision\s+tree|SVM|support\s+vector|k-nearest|KNN|logistic\s+regression|linear\s+regression|gradient\s+boosting|XGBoost|AdaBoost|naive\s+bayes|bayesian|ensemble)\b/gi,
+   226→    /\b(?:reinforcement\s+learning|Q-learning|policy\s+gradient|actor-critic|PPO|DQN|A3C|SAC|TD3|DDPG)\b/gi,
+   227→    /\b(?:transfer\s+learning|fine-?tun|pre-?train|domain\s+adapt|multi-?task|meta-?learning|few-?shot|zero-?shot|self-?supervised|semi-?supervised|unsupervised|supervised)\b/gi,
+   228→    /\b(?:cross-?validation|k-?fold|bootstrap|ablation|hyperparameter|grid\s+search|random\s+search|bayesian\s+optimization)\b/gi,
+   229→    /\b(?:qualitative|quantitative|mixed\s+method|survey|interview|case\s+study|experiment|simulation|longitudinal|cross-?sectional)\b/gi,
+   230→  ];
+   231→
+   232→  const terms = new Set<string>();
+   233→  for (const pattern of methodPatterns) {
+   234→    let match: RegExpExecArray | null;
+   235→    const regex = new RegExp(pattern.source, pattern.flags);
+   236→    while ((match = regex.exec(text)) !== null) {
+   237→      terms.add(match[0].toLowerCase().replace(/\s+/g, ' '));
+   238→    }
+   239→  }
+   240→
+   241→  return Array.from(terms);
+   242→}
+   243→
+   244→/** Detect size indicators in text. */
+   245→function detectSizeIndicators(text: string): { isSmall: boolean; details: string } {
+   246→  const smallPatterns = [
+   247→    { pattern: /\b(\d+)\s*(?:participants?|subjects?|patients?|samples?|instances?|examples?|records?|data\s*points?)\b/gi, threshold: 100 },
+   248→    { pattern: /small\s+sample/i, isSmall: true },
+   249→    { pattern: /limited\s+(?:data|dataset|sample)/i, isSmall: true },
+   250→    { pattern: /underpowered/i, isSmall: true },
+   251→  ];
+   252→
+   253→  for (const sp of smallPatterns) {
+   254→    if ('isSmall' in sp && sp.isSmall) {
+   255→      const match = text.match(sp.pattern);
+   256→      if (match) return { isSmall: true, details: match[0] };
+   257→    }
+   258→    if ('threshold' in sp) {
+   259→      let match: RegExpExecArray | null;
+   260→      const regex = new RegExp(sp.pattern.source, sp.pattern.flags);
+   261→      while ((match = regex.exec(text)) !== null) {
+   262→        const num = parseInt(match[1], 10);
+   263→        if (num < sp.threshold) {
+   264→          return { isSmall: true, details: `Sample size of ${num} may be insufficient` };
+   265→        }
+   266→      }
+   267→    }
+   268→  }
+   269→
+   270→  return { isSmall: false, details: '' };
+   271→}
+   272→
+   273→/** Detect whether a paper uses real-world data. */
+   274→function usesRealWorldData(paper: ExtractedPaper): boolean {
+   275→  const realWorldSignals = [
+   276→    /\breal[- ]?world\b/i,
+   277→    /\bproduction\b/i,
+   278→    /\bdeploy(ed|ment)\b/i,
+   279→    /\bindustry\b/i,
+   280→    /\bclinical\b/i,
+   281→    /\bonline\s+(?:evaluation|testing|experiment)\b/i,
+   282→    /\blive\b/i,
+   283→    /\bfield\s+study\b/i,
+   284→  ];
+   285→
+   286→  const syntheticSignals = [
+   287→    /\bsynthetic\b/i,
+   288→    /\bsimulated?\b/i,
+   289→    /\bartificial\b/i,
+   290→    /\bmock\b/i,
+   291→    /\btoy\s+(?:dataset|example|problem)\b/i,
+   292→  ];
+   293→
+   294→  const text = `${paper.abstract} ${paper.methodology} ${paper.results} ${paper.limitations} ${paper.conclusion}`;
+   295→
+   296→  let realScore = 0;
+   297→  let synthScore = 0;
+   298→
+   299→  for (const p of realWorldSignals) {
+   300→    if (p.test(text)) realScore++;
+   301→  }
+   302→  for (const p of syntheticSignals) {
+   303→    if (p.test(text)) synthScore++;
+   304→  }
+   305→
+   306→  return realScore > synthScore;
+   307→}
+   308→
+   309→/** Detect if paper mentions scalability. */
+   310→function hasScalabilityConcern(paper: ExtractedPaper): boolean {
+   311→  const text = `${paper.abstract} ${paper.methodology} ${paper.limitations} ${paper.conclusion}`;
+   312→  const patterns = [
+   313→    /\bscalab/i,
+   314→    /\bcomputational\s+(?:cost|expense|overhead|burden)/i,
+   315→    /\btime\s+complexity/i,
+   316→    /\bspace\s+complexity/i,
+   317→    /\bO\(n[²³^]/i,
+   318→    /\bexponential/i,
+   319→    /\bdoes\s+not\s+scale/i,
+   320→    /\bcannot\s+scale/i,
+   321→    /\blarge[- ]scale\b/i,
+   322→    /\bbottleneck/i,
+   323→    /\bresource[- ]intensive/i,
+   324→  ];
+   325→  return patterns.some((p) => p.test(text));
+   326→}
+   327→
+   328→/** Detect if paper mentions reproducibility. */
+   329→function hasReproducibilityConcern(paper: ExtractedPaper): boolean {
+   330→  const text = `${paper.abstract} ${paper.methodology} ${paper.limitations} ${paper.conclusion}`;
+   331→  const patterns = [
+   332→    /\breproducib/i,
+   333→    /\breproducib/i,
+   334→    /\breplicat/i,
+   335→    /\bcode\s+(?:is\s+)?(?:not\s+)?available/i,
+   336→    /\bopen[- ]?source/i,
+   337→    /\bimplementation\s+details\s+(?:not|are\s+missing)/i,
+   338→    /\bhyperparameter(?:s)?\s+(?:not|are\s+)?(?:specified|reported|disclosed)/i,
+   339→  ];
+   340→  return patterns.some((p) => p.test(text));
+   341→}
+   342→
+   343→/** Detect if paper mentions ethical concerns. */
+   344→function hasEthicalConcern(paper: ExtractedPaper): boolean {
+   345→  const text = `${paper.abstract} ${paper.methodology} ${paper.limitations} ${paper.conclusion}`;
+   346→  const patterns = [
+   347→    /\bethic/i,
+   348→    /\bbias/i,
+   349→    /\bfairness/i,
+   350→    /\bprivacy/i,
+   351→    /\bconsent/i,
+   352→    /\bIRB\b/i,
+   353→    /\binstitutional\s+review/i,
+   354→    /\bhuman\s+subjects/i,
+   355→    /\banonymiz/i,
+   356→    /\bde-identif/i,
+   357→    /\bdiscriminat/i,
+   358→  ];
+   359→  return patterns.some((p) => p.test(text));
+   360→}
+   361→
+   362→// ─── Core Detection Functions ────────────────────────────────────────────────
+   363→
+   364→/**
+   365→ * Scans paper text for limitation-indicating phrases and creates ResearchGaps
+   366→ * for each detected limitation.
+   367→ */
+   368→export function detectLimitations(papers: ExtractedPaper[]): ResearchGap[] {
+   369→  const gaps: ResearchGap[] = [];
+   370→  const seenDescriptions = new Set<string>();
+   371→
+   372→  for (const paper of papers) {
+   373→    const searchableText = [
+   374→      paper.abstract,
+   375→      paper.limitations,
+   376→      paper.conclusion,
+   377→      paper.methodology,
+   378→      paper.results,
+   379→    ]
+   380→      .filter(Boolean)
+   381→      .join('\n\n');
+   382→
+   383→    for (const lp of LIMITATION_PATTERNS) {
+   384→      let match: RegExpExecArray | null;
+   385→      const regex = new RegExp(lp.pattern.source, lp.pattern.flags);
+   386→      while ((match = regex.exec(searchableText)) !== null) {
+   387→        const sentence = extractSentence(searchableText, match.index, match[0].length);
+   388→        if (!sentence || sentence.length < 10) continue;
+   389→
+   390→        // Deduplicate by description within this function
+   391→        const dedupeKey = `${lp.gapType}:${sentence.slice(0, 80)}`;
+   392→        if (seenDescriptions.has(dedupeKey)) continue;
+   393→        seenDescriptions.add(dedupeKey);
+   394→
+   395→        const affectedPapers = [paper.id];
+   396→        const affectedPaperTitles = [paper.title];
+   397→
+   398→        // Check if other papers mention the same limitation
+   399→        for (const other of papers) {
+   400→          if (other.id === paper.id) continue;
+   401→          const otherText = [other.abstract, other.limitations, other.conclusion, other.methodology, other.results]
+   402→            .filter(Boolean)
+   403→            .join('\n\n');
+   404→          const otherRegex = new RegExp(lp.pattern.source, lp.pattern.flags);
+   405→          if (otherRegex.test(otherText)) {
+   406→            affectedPapers.push(other.id);
+   407→            affectedPaperTitles.push(other.title);
+   408→          }
+   409→        }
+   410→
+   411→        // Adjust severity: more affected papers = higher severity
+   412→        const severityAdjust = Math.min(affectedPapers.length - 1, 3);
+   413→        const severityScore = Math.min(10, lp.baseSeverity + severityAdjust);
+   414→
+   415→        // Adjust novelty: if many papers share this limitation, novelty increases
+   416→        // because it represents a systemic gap
+   417→        const noveltyAdjust = Math.min(affectedPapers.length * 5, 20);
+   418→        const noveltyScore = Math.min(100, lp.noveltyHint + noveltyAdjust);
+   419→
+   420→        gaps.push({
+   421→          id: randomUUID(),
+   422→          description: `${lp.label}: ${sentence.length > 120 ? sentence.slice(0, 117) + '...' : sentence}`,
+   423→          gapType: lp.gapType,
+   424→          affectedPapers,
+   425→          affectedPaperTitles,
+   426→          severityScore,
+   427→          noveltyScore,
+   428→          explanation: `The phrase "${match[0]}" indicates a recognized limitation in the research. This type of gap (${lp.label}) was identified across ${affectedPapers.length} paper(s) and suggests an area where further work is needed.`,
+   429→          whyItIsAGap: `The authors explicitly acknowledge this limitation, meaning the research does not fully address the problem space. Addressing this gap would strengthen the evidence base and potentially open new research directions.`,
+   430→          supportingEvidence: [sentence],
+   431→        });
+   432→      }
+   433→    }
+   434→
+   435→    // ── Additional structural checks per paper ──
+   436→
+   437→    // Small sample size detection
+   438→    const sizeCheck = detectSizeIndicators(searchableText);
+   439→    if (sizeCheck.isSmall) {
+   440→      const dedupeKey = `small_sample:${paper.id}`;
+   441→      if (!seenDescriptions.has(dedupeKey)) {
+   442→        seenDescriptions.add(dedupeKey);
+   443→        gaps.push({
+   444→          id: randomUUID(),
+   445→          description: `Potential small sample size in "${paper.title}"`,
+   446→          gapType: 'small_sample_size',
+   447→          affectedPapers: [paper.id],
+   448→          affectedPaperTitles: [paper.title],
+   449→          severityScore: 7,
+   450→          noveltyScore: 45,
+   451→          explanation: `The study appears to use a limited sample size, which can affect statistical power and generalizability. ${sizeCheck.details}`,
+   452→          whyItIsAGap: 'Small sample sizes reduce the reliability and generalizability of findings. Larger or more diverse samples are needed to validate the results.',
+   453→          supportingEvidence: [sizeCheck.details],
+   454→        });
+   455→      }
+   456→    }
+   457→
+   458→    // No real-world validation
+   459→    if (!usesRealWorldData(paper)) {
+   460→      const dedupeKey = `no_real_world:${paper.id}`;
+   461→      if (!seenDescriptions.has(dedupeKey)) {
+   462→        seenDescriptions.add(dedupeKey);
+   463→        gaps.push({
+   464→          id: randomUUID(),
+   465→          description: `No real-world validation found in "${paper.title}"`,
+   466→          gapType: 'no_real_world_validation',
+   467→          affectedPapers: [paper.id],
+   468→          affectedPaperTitles: [paper.title],
+   469→          severityScore: 7,
+   470→          noveltyScore: 55,
+   471→          explanation: `The paper does not appear to validate its approach on real-world data or in practical deployment scenarios.`,
+   472→          whyItIsAGap: 'Without real-world validation, it is unclear whether the proposed approach would perform reliably outside controlled experimental settings. This limits practical applicability.',
+   473→          supportingEvidence: ['No mentions of real-world, production, clinical, or deployment-based evaluation were found in the paper.'],
+   474→        });
+   475→      }
+   476→    }
+   477→
+   478→    // Scalability limitation
+   479→    if (hasScalabilityConcern(paper)) {
+   480→      const dedupeKey = `scalability:${paper.id}`;
+   481→      if (!seenDescriptions.has(dedupeKey)) {
+   482→        seenDescriptions.add(dedupeKey);
+   483→        gaps.push({
+   484→          id: randomUUID(),
+   485→          description: `Scalability concerns in "${paper.title}"`,
+   486→          gapType: 'scalability_limitation',
+   487→          affectedPapers: [paper.id],
+   488→          affectedPaperTitles: [paper.title],
+   489→          severityScore: 7,
+   490→          noveltyScore: 60,
+   491→          explanation: 'The paper mentions or implies scalability limitations in its approach.',
+   492→          whyItIsAGap: 'Scalability limitations restrict the practical applicability of the method to larger, more complex, or real-world settings where data volume and computational demands are higher.',
+   493→          supportingEvidence: ['Scalability-related terms were detected in the paper text.'],
+   494→        });
+   495→      }
+   496→    }
+   497→
+   498→    // Reproducibility concerns
+   499→    if (hasReproducibilityConcern(paper)) {
+   500→      const dedupeKey = `reproducibility:${paper.id}`;
+   501→      if (!seenDescriptions.has(dedupeKey)) {
+   502→        seenDescriptions.add(dedupeKey);
+   503→        gaps.push({
+   504→          id: randomUUID(),
+   505→          description: `Reproducibility concerns in "${paper.title}"`,
+   506→          gapType: 'reproducibility_issue',
+   507→          affectedPapers: [paper.id],
+   508→          affectedPaperTitles: [paper.title],
+   509→          severityScore: 6,
+   510→          noveltyScore: 40,
+   511→          explanation: 'The paper has potential reproducibility issues, such as missing implementation details or unreleased code.',
+   512→          whyItIsAGap: 'Reproducibility is fundamental to scientific progress. Without it, results cannot be independently verified, and building upon the work becomes difficult.',
+   513→          supportingEvidence: ['Reproducibility-related terms were detected in the paper text.'],
+   514→        });
+   515→      }
+   516→    }
+   517→
+   518→    // Ethical concerns
+   519→    if (hasEthicalConcern(paper)) {
+   520→      const dedupeKey = `ethical:${paper.id}`;
+   521→      if (!seenDescriptions.has(dedupeKey)) {
+   522→        seenDescriptions.add(dedupeKey);
+   523→        gaps.push({
+   524→          id: randomUUID(),
+   525→          description: `Ethical considerations in "${paper.title}"`,
+   526→          gapType: 'ethical_concern',
+   527→          affectedPapers: [paper.id],
+   528→          affectedPaperTitles: [paper.title],
+   529→          severityScore: 8,
+   530→          noveltyScore: 50,
+   531→          explanation: 'The paper raises or involves ethical considerations that may not be fully addressed.',
+   532→          whyItIsAGap: 'Ethical gaps can undermine trust and applicability of research. Thorough ethical analysis and mitigation strategies are needed before deployment.',
+   533→          supportingEvidence: ['Ethics-related terms were detected in the paper text.'],
+   534→        });
+   535→      }
+   536→    }
+   537→  }
+   538→
+   539→  return gaps;
+   540→}
+   541→
+   542→/**
+   543→ * Compares methodologies across papers and detects gaps:
+   544→ * - Different approaches for the same problem
+   545→ * - Missing methodologies (e.g., no ablation, no baselines)
+   546→ * - Outdated methods still in use
+   547→ */
+   548→export function detectMethodologyGaps(papers: ExtractedPaper[]): ResearchGap[] {
+   549→  if (papers.length < 2) return [];
+   550→
+   551→  const gaps: ResearchGap[] = [];
+   552→  const seenDescriptions = new Set<string>();
+   553→
+   554→  // Collect all methodology terms per paper
+   555→  const paperMethods = papers.map((p) => ({
+   556→    paper: p,
+   557→    methods: extractMethodologyTerms(`${p.methodology} ${p.abstract} ${p.results} ${p.conclusion}`),
+   558→  }));
+   559→
+   560→  // ── Detect different approaches for the same problem ──
+   561→  // Group papers by topic overlap
+   562→  for (let i = 0; i < papers.length; i++) {
+   563→    for (let j = i + 1; j < papers.length; j++) {
+   564→      const a = papers[i];
+   565→      const b = papers[j];
+   566→
+   567→      // Check topic overlap
+   568→      const similarity = keywordSimilarity(
+   569→        [...a.keywords, ...a.topics, a.researchFocus].filter(Boolean),
+   570→        [...b.keywords, ...b.topics, b.researchFocus].filter(Boolean)
+   571→      );
+   572→
+   573→      if (similarity < 0.2) continue; // Not related enough
+   574→
+   575→      const methodsA = paperMethods[i].methods;
+   576→      const methodsB = paperMethods[j].methods;
+   577→
+   578→      // Find methods unique to each paper
+   579→      const onlyInA = methodsA.filter((m) => !methodsB.includes(m));
+   580→      const onlyInB = methodsB.filter((m) => !methodsA.includes(m));
+   581→
+   582→      if (onlyInA.length > 0 && onlyInB.length > 0 && similarity >= 0.3) {
+   583→        // Same topic, different methods => methodology gap
+   584→        const dedupeKey = `method_diff:${[a.id, b.id].sort().join(':')}`;
+   585→        if (seenDescriptions.has(dedupeKey)) continue;
+   586→        seenDescriptions.add(dedupeKey);
+   587→
+   588→        gaps.push({
+   589→          id: randomUUID(),
+   590→          description: `Divergent methodologies for related problems: "${a.title}" vs "${b.title}"`,
+   591→          gapType: 'methodology_gap',
+   592→          affectedPapers: [a.id, b.id],
+   593→          affectedPaperTitles: [a.title, b.title],
+   594→          severityScore: 6,
+   595→          noveltyScore: 70,
+   596→          explanation: `Two papers addressing related topics use different methodological approaches. "${a.title}" uses ${onlyInA.slice(0, 3).join(', ')}, while "${b.title}" uses ${onlyInB.slice(0, 3).join(', ')}. This divergence suggests no consensus on the best methodology.`,
+   597→          whyItIsAGap: 'When different methodologies are applied to similar problems without direct comparison, it is unclear which approach is superior. A systematic comparison or combination of methods could yield better results.',
+   598→          supportingEvidence: [
+   599→            `"${a.title}" uses: ${onlyInA.slice(0, 5).join(', ')}`,
+   600→            `"${b.title}" uses: ${onlyInB.slice(0, 5).join(', ')}`,
+   601→          ],
+   602→        });
+   603→      }
+   604→    }
+   605→  }
+   606→
+   607→  // ── Detect missing methodological components ──
+   608→  const allMethodTerms = new Set<string>();
+   609→  for (const pm of paperMethods) {
+   610→    pm.methods.forEach((m) => allMethodTerms.add(m));
+   611→  }
+   612→
+   613→  // Check for common missing components
+   614→  const criticalMethodComponents = [
+   615→    {
+   616→      term: 'ablation',
+   617→      label: 'ablation study',
+   618→      gapType: 'methodology_gap' as GapType,
+   619→      severity: 6,
+   620→      novelty: 55,
+   621→      description: 'No ablation study found across the papers, making it hard to understand individual component contributions.',
+   622→    },
+   623→    {
+   624→      term: 'baseline',
+   625→      label: 'baseline comparison',
+   626→      gapType: 'methodology_gap' as GapType,
+   627→      severity: 7,
+   628→      novelty: 40,
+   629→      description: 'Missing baseline comparisons make it difficult to assess relative performance improvements.',
+   630→    },
+   631→    {
+   632→      term: 'cross-validation',
+   633→      label: 'cross-validation',
+   634→      gapType: 'reproducibility_issue' as GapType,
+   635→      severity: 5,
+   636→      novelty: 35,
+   637→      description: 'Lack of cross-validation raises concerns about result stability and generalizability.',
+   638→    },
+   639→    {
+   640→      term: 'statistical',
+   641→      label: 'statistical significance testing',
+   642→      gapType: 'methodology_gap' as GapType,
+   643→      severity: 6,
+   644→      novelty: 40,
+   645→      description: 'Absence of statistical significance testing makes it hard to determine if results are meaningful.',
+   646→    },
+   647→    {
+   648→      term: 'hyperparameter',
+   649→      label: 'hyperparameter analysis',
+   650→      gapType: 'reproducibility_issue' as GapType,
+   651→      severity: 5,
+   652→      novelty: 35,
+   653→      description: 'Missing hyperparameter analysis reduces reproducibility and understanding of model sensitivity.',
+   654→    },
+   655→  ];
+   656→
+   657→  for (const component of criticalMethodComponents) {
+   658→    const papersWithComponent = paperMethods.filter((pm) =>
+   659→      pm.methods.some((m) => m.includes(component.term))
+   660→    );
+   661→
+   662→    if (papersWithComponent.length === 0 && papers.length >= 2) {
+   663→      const dedupeKey = `missing_method:${component.term}`;
+   664→      if (seenDescriptions.has(dedupeKey)) continue;
+   665→      seenDescriptions.add(dedupeKey);
+   666→
+   667→      gaps.push({
+   668→        id: randomUUID(),
+   669→        description: `Missing ${component.label} across all papers`,
+   670→        gapType: component.gapType,
+   671→        affectedPapers: papers.map((p) => p.id),
+   672→        affectedPaperTitles: papers.map((p) => p.title),
+   673→        severityScore: component.severity,
+   674→        noveltyScore: component.novelty,
+   675→        explanation: component.description,
+   676→        whyItIsAGap: `None of the analyzed papers include a ${component.label}. This is a methodological gap that affects the validity and interpretability of the results across the field.`,
+   677→        supportingEvidence: [
+   678→          `No mention of "${component.term}" was found in any of the ${papers.length} papers analyzed.`,
+   679→        ],
+   680→      });
+   681→    }
+   682→  }
+   683→
+   684→  // ── Detect outdated methods ──
+   685→  const outdatedPatterns: Array<{ pattern: RegExp; label: string; newer: string }> = [
+   686→    { pattern: /\bRNN\b(?!.*LSTM)(?!.*GRU)/i, label: 'vanilla RNN', newer: 'LSTM, GRU, or Transformer' },
+   687→    { pattern: /\bSVM\b/i, label: 'SVM', newer: 'deep learning or ensemble methods' },
+   688→    { pattern: /\blogistic\s+regression\b(?!.*deep)(?!.*neural)/i, label: 'logistic regression', newer: 'neural network-based approaches' },
+   689→    { pattern: /\bVGG\b/i, label: 'VGG network', newer: 'ResNet, EfficientNet, or Vision Transformer' },
+   690→    { pattern: /\bAlexNet\b/i, label: 'AlexNet', newer: 'modern CNNs or Vision Transformers' },
+   691→  ];
+   692→
+   693→  for (const paper of papers) {
+   694→    const methodText = `${paper.methodology} ${paper.abstract}`;
+   695→    for (const outdated of outdatedPatterns) {
+   696→      if (outdated.pattern.test(methodText)) {
+   697→        const dedupeKey = `outdated:${paper.id}:${outdated.label}`;
+   698→        if (seenDescriptions.has(dedupeKey)) continue;
+   699→        seenDescriptions.add(dedupeKey);
+   700→
+   701→        gaps.push({
+   702→          id: randomUUID(),
+   703→          description: `Use of outdated method "${outdated.label}" in "${paper.title}"`,
+   704→          gapType: 'outdated_method',
+   705→          affectedPapers: [paper.id],
+   706→          affectedPaperTitles: [paper.title],
+   707→          severityScore: 5,
+   708→          noveltyScore: 65,
+   709→          explanation: `The paper uses ${outdated.label}, which has been largely superseded by ${outdated.newer}. Using more modern approaches could yield improved performance.`,
+   710→          whyItIsAGap: `Outdated methods may not leverage recent advances, leaving potential performance gains on the table. Updating the methodology to ${outdated.newer} could significantly improve results.`,
+   711→          supportingEvidence: [`The paper uses ${outdated.label} while ${outdated.newer} are now standard.`],
+   712→        });
+   713→      }
+   714→    }
+   715→  }
+   716→
+   717→  return gaps;
+   718→}
+   719→
+   720→/**
+   721→ * Detects dataset-related gaps:
+   722→ * - Different datasets used for the same problem
+   723→ * - Limited datasets (small, single-domain, synthetic only)
+   724→ * - No real-world data testing
+   725→ * - Outdated benchmark datasets
+   726→ */
+   727→export function detectDatasetGaps(papers: ExtractedPaper[]): ResearchGap[] {
+   728→  if (papers.length < 1) return [];
+   729→
+   730→  const gaps: ResearchGap[] = [];
+   731→  const seenDescriptions = new Set<string>();
+   732→
+   733→  // Collect dataset mentions per paper
+   734→  const paperDatasets = papers.map((p) => ({
+   735→    paper: p,
+   736→    datasets: extractDatasetMentions(`${p.abstract} ${p.methodology} ${p.results} ${p.conclusion}`),
+   737→    usesRealWorld: usesRealWorldData(p),
+   738→    hasSmallSample: detectSizeIndicators(`${p.abstract} ${p.methodology} ${p.results}`).isSmall,
+   739→  }));
+   740→
+   741→  // ── Detect when papers use different datasets for similar problems ──
+   742→  for (let i = 0; i < papers.length; i++) {
+   743→    for (let j = i + 1; j < papers.length; j++) {
+   744→      const a = paperDatasets[i];
+   745→      const b = paperDatasets[j];
+   746→
+   747→      const similarity = keywordSimilarity(
+   748→        [...a.paper.keywords, ...a.paper.topics, a.paper.researchFocus].filter(Boolean),
+   749→        [...b.paper.keywords, ...b.paper.topics, b.paper.researchFocus].filter(Boolean)
+   750→      );
+   751→
+   752→      if (similarity < 0.25) continue;
+   753→
+   754→      const commonDatasets = a.datasets.filter((d) =>
+   755→        b.datasets.some((dd) => dd.toLowerCase() === d.toLowerCase())
+   756→      );
+   757→      const uniqueToA = a.datasets.filter(
+   758→        (d) => !b.datasets.some((dd) => dd.toLowerCase() === d.toLowerCase())
+   759→      );
+   760→      const uniqueToB = b.datasets.filter(
+   761→        (d) => !a.datasets.some((dd) => dd.toLowerCase() === d.toLowerCase())
+   762→      );
+   763→
+   764→      // Related topics but no common datasets
+   765→      if (commonDatasets.length === 0 && uniqueToA.length > 0 && uniqueToB.length > 0) {
+   766→        const dedupeKey = `dataset_diff:${[a.paper.id, b.paper.id].sort().join(':')}`;
+   767→        if (seenDescriptions.has(dedupeKey)) continue;
+   768→        seenDescriptions.add(dedupeKey);
+   769→
+   770→        gaps.push({
+   771→          id: randomUUID(),
+   772→          description: `Related papers use different datasets: "${a.paper.title}" vs "${b.paper.title}"`,
+   773→          gapType: 'missing_dataset',
+   774→          affectedPapers: [a.paper.id, b.paper.id],
+   775→          affectedPaperTitles: [a.paper.title, b.paper.title],
+   776→          severityScore: 6,
+   777→          noveltyScore: 65,
+   778→          explanation: `Two papers addressing related topics use entirely different datasets (${uniqueToA.slice(0, 3).join(', ')} vs ${uniqueToB.slice(0, 3).join(', ')}), making direct comparison impossible.`,
+   779→          whyItIsAGap: 'When related work uses different datasets, results are not directly comparable. A unified evaluation on common benchmarks would enable fair comparison and reveal true methodological advantages.',
+   780→          supportingEvidence: [
+   781→            `"${a.paper.title}" uses: ${uniqueToA.slice(0, 5).join(', ') || 'unspecified'}`,
+   782→            `"${b.paper.title}" uses: ${uniqueToB.slice(0, 5).join(', ') || 'unspecified'}`,
+   783→          ],
+   784→        });
+   785→      }
+   786→    }
+   787→  }
+   788→
+   789→  // ── Detect papers that only use synthetic data ──
+   790→  const papersWithNoRealWorld = paperDatasets.filter((pd) => !pd.usesRealWorld);
+   791→  if (papersWithNoRealWorld.length === papers.length && papers.length >= 2) {
+   792→    const dedupeKey = 'no_real_world_all';
+   793→    if (!seenDescriptions.has(dedupeKey)) {
+   794→      seenDescriptions.add(dedupeKey);
+   795→      gaps.push({
+   796→        id: randomUUID(),
+   797→        description: 'No paper validates on real-world data',
+   798→        gapType: 'no_real_world_validation',
+   799→        affectedPapers: papers.map((p) => p.id),
+   800→        affectedPaperTitles: papers.map((p) => p.title),
+   801→        severityScore: 8,
+   802→        noveltyScore: 60,
+   803→        explanation: `None of the ${papers.length} analyzed papers include real-world validation. All evaluations appear to be conducted on controlled or synthetic settings.`,
+   804→        whyItIsAGap: 'Without real-world validation, it is uncertain whether proposed methods will perform reliably in practical applications. This is a critical gap for translating research into practice.',
+   805→        supportingEvidence: papers.map((p) => `"${p.title}" does not appear to use real-world data`),
+   806→      });
+   807→    }
+   808→  }
+   809→
+   810→  // ── Detect limited/single-domain datasets ──
+   811→  const singleDomainPatterns = [
+   812→    /\bsingle[- ]domain\b/i,
+   813→    /\bonly\s+(?:tested|evaluated|assessed)\s+on\s+(?:one|a\s+single)\b/i,
+   814→    /\bspecific\s+domain\b/i,
+   815→    /\bsame\s+domain\b/i,
+   816→  ];
+   817→
+   818→  for (const paper of papers) {
+   819→    const text = `${paper.abstract} ${paper.methodology} ${paper.limitations}`;
+   820→    for (const pattern of singleDomainPatterns) {
+   821→      if (pattern.test(text)) {
+   822→        const dedupeKey = `single_domain:${paper.id}`;
+   823→        if (seenDescriptions.has(dedupeKey)) continue;
+   824→        seenDescriptions.add(dedupeKey);
+   825→
+   826→        gaps.push({
+   827→          id: randomUUID(),
+   828→          description: `Single-domain evaluation in "${paper.title}"`,
+   829→          gapType: 'limited_scope',
+   830→          affectedPapers: [paper.id],
+   831→          affectedPaperTitles: [paper.title],
+   832→          severityScore: 6,
+   833→          noveltyScore: 55,
+   834→          explanation: 'The paper evaluates its approach only on a single domain, limiting the generalizability of its conclusions.',
+   835→          whyItIsAGap: 'Single-domain evaluation cannot demonstrate that the approach generalizes across different contexts. Cross-domain evaluation is needed to establish broader applicability.',
+   836→          supportingEvidence: [text.match(pattern)![0]],
+   837→        });
+   838→        break; // One gap per paper for this pattern
+   839→      }
+   840→    }
+   841→  }
+   842→
+   843→  // ── Detect outdated benchmark usage ──
+   844→  const outdatedBenchmarks: Array<{ name: RegExp; newer: string }> = [
+   845→    { name: /\bMNIST\b/i, newer: 'Fashion-MNIST, CIFAR-10/100, or ImageNet' },
+   846→    { name: /\bPTB\b(?!.*WikiText)/i, newer: 'WikiText-103 or larger language modeling benchmarks' },
+   847→    { name: /\bSST(?:-1)?\b(?!.*SST-2)/i, newer: 'SST-2 or more comprehensive sentiment benchmarks' },
+   848→    { name: /\bVGG\b/i, newer: 'modern architectures and benchmarks' },
+   849→  ];
+   850→
+   851→  for (const paper of papers) {
+   852→    const text = `${paper.abstract} ${paper.methodology} ${paper.results}`;
+   853→    for (const benchmark of outdatedBenchmarks) {
+   854→      if (benchmark.name.test(text)) {
+   855→        const dedupeKey = `outdated_bench:${paper.id}:${benchmark.name.source}`;
+   856→        if (seenDescriptions.has(dedupeKey)) continue;
+   857→        seenDescriptions.add(dedupeKey);
+   858→
+   859→        gaps.push({
+   860→          id: randomUUID(),
+   861→          description: `Use of outdated benchmark in "${paper.title}"`,
+   862→          gapType: 'outdated_method',
+   863→          affectedPapers: [paper.id],
+   864→          affectedPaperTitles: [paper.title],
+   865→          severityScore: 4,
+   866→          noveltyScore: 50,
+   867→          explanation: `The paper uses an outdated benchmark dataset. More challenging and current benchmarks such as ${benchmark.newer} are now available and would better demonstrate the method's capabilities.`,
+   868→          whyItIsAGap: 'Outdated benchmarks may not reflect current challenges in the field, potentially inflating performance metrics and limiting the relevance of results.',
+   869→          supportingEvidence: [`Outdated benchmark detected; consider ${benchmark.newer}.`],
+   870→        });
+   871→      }
+   872→    }
+   873→  }
+   874→
+   875→  // ── Detect missing dataset coverage across the corpus ──
+   876→  const allDatasetMentions = new Set<string>();
+   877→  for (const pd of paperDatasets) {
+   878→    pd.datasets.forEach((d) => allDatasetMentions.add(d.toLowerCase()));
+   879→  }
+   880→
+   881→  // If very few datasets are mentioned across all papers, flag it
+   882→  if (allDatasetMentions.size <= 1 && papers.length >= 2) {
+   883→    const dedupeKey = 'few_datasets_corpus';
+   884→    if (!seenDescriptions.has(dedupeKey)) {
+   885→      seenDescriptions.add(dedupeKey);
+   886→      gaps.push({
+   887→        id: randomUUID(),
+   888→        description: 'Very limited dataset coverage across analyzed papers',
+   889→        gapType: 'missing_dataset',
+   890→        affectedPapers: papers.map((p) => p.id),
+   891→        affectedPaperTitles: papers.map((p) => p.title),
+   892→        severityScore: 7,
+   893→        noveltyScore: 55,
+   894→        explanation: `Across ${papers.length} papers, only ${allDatasetMentions.size} dataset(s) were identified. This severely limits the breadth of evaluation and makes it difficult to draw generalizable conclusions.`,
+   895→        whyItIsAGap: 'Limited dataset coverage means results may not generalize. Testing on a broader range of datasets is essential for robust conclusions.',
+   896→        supportingEvidence: [`Only ${allDatasetMentions.size} dataset(s) found across ${papers.length} papers.`],
+   897→      });
+   898→    }
+   899→  }
+   900→
+   901→  return gaps;
+   902→}
+   903→
+   904→/**
+   905→ * Finds contradictory claims between papers:
+   906→ * - Opposing results on the same topic
+   907→ * - Different conclusions about the same approach
+   908→ * - Conflicting findings
+   909→ */
+   910→export function detectConflicts(papers: ExtractedPaper[]): ResearchGap[] {
+   911→  if (papers.length < 2) return [];
+   912→
+   913→  const gaps: ResearchGap[] = [];
+   914→  const seenDescriptions = new Set<string>();
+   915→
+   916→  // Conflict-indicating patterns in results
+   917→  const conflictResultPatterns = [
+   918→    { pattern: /\b(outperform|superior|better\s+than|exceeds?)\b/i, positive: true },
+   919→    { pattern: /\b(underperform|inferior|worse\s+than|falls?\s+short)\b/i, positive: false },
+   920→    { pattern: /\b(significant(?:ly)?\s+improvement)\b/i, positive: true },
+   921→    { pattern: /\b(no\s+significant\s+(?:improvement|difference))\b/i, positive: false },
+   922→    { pattern: /\b(achieves?\s+(?:state-of-the-art|SOTA|best))\b/i, positive: true },
+   923→    { pattern: /\b(fails?\s+to|unable\s+to|does\s+not\s+(?:improve|outperform))\b/i, positive: false },
+   924→  ];
+   925→
+   926→  // Build paper profiles with result sentiment and topics
+   927→  const paperProfiles = papers.map((p) => {
+   928→    const text = `${p.abstract} ${p.results} ${p.conclusion}`;
+   929→    const positiveSignals: string[] = [];
+   930→    const negativeSignals: string[] = [];
+   931→
+   932→    for (const cp of conflictResultPatterns) {
+   933→      let match: RegExpExecArray | null;
+   934→      const regex = new RegExp(cp.pattern.source, cp.pattern.flags);
+   935→      while ((match = regex.exec(text)) !== null) {
+   936→        if (cp.positive) {
+   937→          positiveSignals.push(match[0]);
+   938→        } else {
+   939→          negativeSignals.push(match[0]);
+   940→        }
+   941→      }
+   942→    }
+   943→
+   944→    return {
+   945→      paper: p,
+   946→      positiveSignals,
+   947→      negativeSignals,
+   948→      topics: [...p.keywords, ...p.topics, p.researchFocus].filter(Boolean).map((t) => t.toLowerCase()),
+   949→    };
+   950→  });
+   951→
+   952→  // Compare pairs for conflicts
+   953→  for (let i = 0; i < paperProfiles.length; i++) {
+   954→    for (let j = i + 1; j < paperProfiles.length; j++) {
+   955→      const a = paperProfiles[i];
+   956→      const b = paperProfiles[j];
+   957→
+   958→      // Check topic overlap
+   959→      const similarity = keywordSimilarity(
+   960→        a.topics,
+   961→        b.topics
+   962→      );
+   963→
+   964→      if (similarity < 0.15) continue; // Not related enough
+   965→
+   966→      // Check for conflicting sentiments
+   967→      const aHasPositive = a.positiveSignals.length > 0;
+   968→      const aHasNegative = a.negativeSignals.length > 0;
+   969→      const bHasPositive = b.positiveSignals.length > 0;
+   970→      const bHasNegative = b.negativeSignals.length > 0;
+   971→
+   972→      // One paper is positive, other is negative about related topics
+   973→      if (
+   974→        ((aHasPositive && bHasNegative) || (aHasNegative && bHasPositive)) &&
+   975→        similarity >= 0.2
+   976→      ) {
+   977→        const dedupeKey = `conflict:${[a.paper.id, b.paper.id].sort().join(':')}`;
+   978→        if (seenDescriptions.has(dedupeKey)) continue;
+   979→        seenDescriptions.add(dedupeKey);
+   980→
+   981→        const positivePaper = aHasPositive && bHasNegative ? a : b;
+   982→        const negativePaper = aHasPositive && bHasNegative ? b : a;
+   983→
+   984→        gaps.push({
+   985→          id: randomUUID(),
+   986→          description: `Conflicting results between "${positivePaper.paper.title}" and "${negativePaper.paper.title}"`,
+   987→          gapType: 'conflicting_results',
+   988→          affectedPapers: [a.paper.id, b.paper.id],
+   989→          affectedPaperTitles: [a.paper.title, b.paper.title],
+   990→          severityScore: 8,
+   991→          noveltyScore: 75,
+   992→          explanation: `Two papers addressing related topics report conflicting results. "${positivePaper.paper.title}" reports positive findings (${positivePaper.positiveSignals.slice(0, 2).join(', ')}), while "${negativePaper.paper.title}" reports negative findings (${negativePaper.negativeSignals.slice(0, 2).join(', ')}).`,
+   993→          whyItIsAGap: 'Conflicting results between studies on similar topics indicate a gap in understanding. Resolving these conflicts through systematic comparison or larger-scale studies would advance the field.',
+   994→          supportingEvidence: [
+   995→            `"${positivePaper.paper.title}" reports: ${positivePaper.positiveSignals.slice(0, 3).join(', ')}`,
+   996→            `"${negativePaper.paper.title}" reports: ${negativePaper.negativeSignals.slice(0, 3).join(', ')}`,
+   997→          ],
+   998→        });
+   999→      }
+  1000→
+  1001→      // Also check for explicit contradictions in methodology or approach
+  1002→      const aMethodTerms = extractMethodologyTerms(`${a.paper.methodology} ${a.paper.abstract}`);
+  1003→      const bMethodTerms = extractMethodologyTerms(`${b.paper.methodology} ${b.paper.abstract}`);
+  1004→
+  1005→      // If same topic but completely different methods with different results
+  1006→      if (similarity >= 0.3 && aHasPositive && bHasPositive) {
+  1007→        const commonMethods = aMethodTerms.filter((m) => bMethodTerms.includes(m));
+  1008→        const uniqueA = aMethodTerms.filter((m) => !bMethodTerms.includes(m));
+  1009→        const uniqueB = bMethodTerms.filter((m) => !aMethodTerms.includes(m));
+  1010→
+  1011→        if (commonMethods.length === 0 && uniqueA.length > 0 && uniqueB.length > 0) {
+  1012→          const dedupeKey = `method_conflict:${[a.paper.id, b.paper.id].sort().join(':')}`;
+  1013→          if (seenDescriptions.has(dedupeKey)) continue;
+  1014→          seenDescriptions.add(dedupeKey);
+  1015→
+  1016→          gaps.push({
+  1017→            id: randomUUID(),
+  1018→            description: `Different methods yield positive results on similar problems: "${a.paper.title}" vs "${b.paper.title}"`,
+  1019→            gapType: 'conflicting_results',
+  1020→            affectedPapers: [a.paper.id, b.paper.id],
+  1021→            affectedPaperTitles: [a.paper.title, b.paper.title],
+  1022→            severityScore: 6,
+  1023→            noveltyScore: 70,
+  1024→            explanation: `Both papers report positive results using entirely different methodological approaches on related problems. "${a.paper.title}" uses ${uniqueA.slice(0, 3).join(', ')}, while "${b.paper.title}" uses ${uniqueB.slice(0, 3).join(', ')}.`,
+  1025→            whyItIsAGap: 'When different methods both claim success on similar problems without direct comparison, it is unclear which is truly better or whether the methods are complementary. A head-to-head comparison would resolve this uncertainty.',
+  1026→            supportingEvidence: [
+  1027→              `"${a.paper.title}" uses: ${uniqueA.slice(0, 5).join(', ')}`,
+  1028→              `"${b.paper.title}" uses: ${uniqueB.slice(0, 5).join(', ')}`,
+  1029→            ],
+  1030→          });
+  1031→        }
+  1032→      }
+  1033→    }
+  1034→  }
+  1035→
+  1036→  return gaps;
+  1037→}
+  1038→
+  1039→/**
+  1040→ * Identifies methods that could be applied to other domains but haven't been:
+  1041→ * - Techniques mentioned in one field that aren't used in another
+  1042→ * - Cross-pollination opportunities
+  1043→ */
+  1044→export function detectCrossDomainGaps(papers: ExtractedPaper[]): ResearchGap[] {
+  1045→  if (papers.length < 2) return [];
+  1046→
+  1047→  const gaps: ResearchGap[] = [];
+  1048→  const seenDescriptions = new Set<string>();
+  1049→
+  1050→  // Build domain signals per paper
+  1051→  const paperDomains = papers.map((p) => ({
+  1052→    paper: p,
+  1053→    domainSignals: extractDomainSignals(p),
+  1054→    methods: extractMethodologyTerms(`${p.methodology} ${p.abstract} ${p.results}`),
+  1055→    datasets: extractDatasetMentions(`${p.abstract} ${p.methodology} ${p.results}`),
+  1056→  }));
+  1057→
+  1058→  // Find papers with different domain signals but potentially transferable methods
+  1059→  for (let i = 0; i < paperDomains.length; i++) {
+  1060→    for (let j = i + 1; j < paperDomains.length; j++) {
+  1061→      const a = paperDomains[i];
+  1062→      const b = paperDomains[j];
+  1063→
+  1064→      // Check if papers are in different domains
+  1065→      const domainOverlap = keywordSimilarity(a.domainSignals, b.domainSignals);
+  1066→      if (domainOverlap > 0.5) continue; // Too similar domain, skip
+  1067→
+  1068→      // Check if methods from one could apply to the other
+  1069→      const methodOverlap = keywordSimilarity(a.methods, b.methods);
+  1070→
+  1071→      // If different domains and different methods, potential cross-domain gap
+  1072→      if (domainOverlap < 0.3 && methodOverlap < 0.3) {
+  1073→        // Check if the research focus of one could benefit from methods of the other
+  1074→        const aFocusTerms = a.paper.researchFocus.toLowerCase().split(/\s+/);
+  1075→        const bFocusTerms = b.paper.researchFocus.toLowerCase().split(/\s+/);
+  1076→
+  1077→        // Look for potential applicability keywords
+  1078→        const applicabilityPatterns = [
+  1079→          /\bclassif(y|ication)\b/i,
+  1080→          /\bdetect(ion|ing)\b/i,
+  1081→          /\bpredict(ion|ing)\b/i,
+  1082→          /\bgenerat(ion|ing)\b/i,
+  1083→          /\boptimiz(ation|ing)\b/i,
+  1084→          /\bsegment(ation|ing)\b/i,
+  1085→          /\brecogni(tion|ze)\b/i,
+  1086→          /\bmodel(ing|ed)\b/i,
+  1087→          /\banaly[sz](is|ing|e)\b/i,
+  1088→          /\bprocess(ing|ed)\b/i,
+  1089→        ];
+  1090→
+  1091→        const aHasApplicability = applicabilityPatterns.some((p) => p.test(a.paper.researchFocus) || p.test(a.paper.abstract));
+  1092→        const bHasApplicability = applicabilityPatterns.some((p) => p.test(b.paper.researchFocus) || p.test(b.paper.abstract));
+  1093→
+  1094→        if (aHasApplicability || bHasApplicability) {
+  1095→          const dedupeKey = `cross_domain:${[a.paper.id, b.paper.id].sort().join(':')}`;
+  1096→          if (seenDescriptions.has(dedupeKey)) continue;
+  1097→          seenDescriptions.add(dedupeKey);
+  1098→
+  1099→          gaps.push({
+  1100→            id: randomUUID(),
+  1101→            description: `Cross-domain application opportunity: methods from "${a.paper.title}" could potentially be applied to the domain of "${b.paper.title}" (or vice versa)`,
+  1102→            gapType: 'cross_domain_gap',
+  1103→            affectedPapers: [a.paper.id, b.paper.id],
+  1104→            affectedPaperTitles: [a.paper.title, b.paper.title],
+  1105→            severityScore: 5,
+  1106→            noveltyScore: 85,
+  1107→            explanation: `"${a.paper.title}" uses ${a.methods.slice(0, 3).join(', ')} in its domain, while "${b.paper.title}" uses ${b.methods.slice(0, 3).join(', ')} in a different domain. These methods could potentially be cross-applied to yield new insights.`,
+  1108→            whyItIsAGap: 'Cross-domain transfer of methods is a powerful but underexplored research strategy. Applying successful techniques from one domain to another can yield breakthroughs and fresh perspectives.',
+  1109→            supportingEvidence: [
+  1110→              `"${a.paper.title}" domain signals: ${a.domainSignals.slice(0, 5).join(', ') || 'general'}`,
+  1111→              `"${b.paper.title}" domain signals: ${b.domainSignals.slice(0, 5).join(', ') || 'general'}`,
+  1112→              `Method gap: ${a.methods.slice(0, 3).join(', ')} ↔ ${b.methods.slice(0, 3).join(', ')}`,
+  1113→            ],
+  1114→          });
+  1115→        }
+  1116→      }
+  1117→
+  1118→      // If different domains but same methods, potential for comparative study
+  1119→      if (domainOverlap < 0.3 && methodOverlap > 0.5 && a.methods.length > 0) {
+  1120→        const dedupeKey = `cross_domain_same_method:${[a.paper.id, b.paper.id].sort().join(':')}`;
+  1121→        if (seenDescriptions.has(dedupeKey)) continue;
+  1122→        seenDescriptions.add(dedupeKey);
+  1123→
+  1124→        gaps.push({
+  1125→          id: randomUUID(),
+  1126→          description: `Same methodology applied across different domains: "${a.paper.title}" and "${b.paper.title}"`,
+  1127→          gapType: 'cross_domain_gap',
+  1128→          affectedPapers: [a.paper.id, b.paper.id],
+  1129→          affectedPaperTitles: [a.paper.title, b.paper.title],
+  1130→          severityScore: 4,
+  1131→          noveltyScore: 75,
+  1132→          explanation: `Both papers use similar methods (${a.methods.slice(0, 3).join(', ')}) but in different domains. This creates an opportunity for a systematic cross-domain comparison or transfer learning study.`,
+  1133→          whyItIsAGap: 'When the same methodology is independently applied in different domains without cross-domain comparison, we miss the opportunity to understand how domain characteristics affect method performance and to develop domain-adaptive approaches.',
+  1134→          supportingEvidence: [
+  1135→            `Common methods: ${a.methods.slice(0, 5).join(', ')}`,
+  1136→            `Different domain signals suggest different application areas.`,
+  1137→          ],
+  1138→        });
+  1139→      }
+  1140→    }
+  1141→  }
+  1142→
+  1143→  // ── Detect techniques mentioned but not applied ──
+  1144→  // Look for methods mentioned in future work or limitations that could be cross-applied
+  1145→  for (const paper of papers) {
+  1146→    const futureWorkText = `${paper.limitations} ${paper.conclusion}`;
+  1147→    const mentionedButNotUsed: string[] = [];
+  1148→
+  1149→    const potentialMethods = extractMethodologyTerms(futureWorkText);
+  1150→    const usedMethods = extractMethodologyTerms(`${paper.methodology} ${paper.abstract}`);
+  1151→
+  1152→    for (const method of potentialMethods) {
+  1153→      if (!usedMethods.includes(method)) {
+  1154→        mentionedButNotUsed.push(method);
+  1155→      }
+  1156→    }
+  1157→
+  1158→    if (mentionedButNotUsed.length > 0) {
+  1159→      const dedupeKey = `mentioned_not_used:${paper.id}`;
+  1160→      if (seenDescriptions.has(dedupeKey)) continue;
+  1161→      seenDescriptions.add(dedupeKey);
+  1162→
+  1163→      gaps.push({
+  1164→        id: randomUUID(),
+  1165→        description: `Methods mentioned but not applied in "${paper.title}"`,
+  1166→        gapType: 'cross_domain_gap',
+  1167→        affectedPapers: [paper.id],
+  1168→        affectedPaperTitles: [paper.title],
+  1169→        severityScore: 4,
+  1170→        noveltyScore: 65,
+  1171→        explanation: `The paper mentions ${mentionedButNotUsed.slice(0, 3).join(', ')} but does not apply them. These methods could potentially improve the results or extend the scope of the study.`,
+  1172→        whyItIsAGap: 'When methods are mentioned as potential alternatives or extensions but not actually implemented, it represents an unexplored opportunity. Implementing and comparing these methods could yield valuable insights.',
+  1173→        supportingEvidence: [`Mentioned but not used: ${mentionedButNotUsed.slice(0, 5).join(', ')}`],
+  1174→      });
+  1175→    }
+  1176→  }
+  1177→
+  1178→  return gaps;
+  1179→}
+  1180→
+  1181→/**
+  1182→ * Calculates severity and novelty scores for a gap.
+  1183→ * Severity: Based on number of affected papers, gap type criticality, and evidence strength.
+  1184→ * Novelty: Based on uniqueness, whether papers partially address it, and gap type.
+  1185→ */
+  1186→export function scoreGap(
+  1187→  gap: Partial<ResearchGap>,
+  1188→  papers: ExtractedPaper[]
+  1189→): { severityScore: number; noveltyScore: number } {
+  1190→  // ── Severity Scoring ──
+  1191→  let severityScore = gap.severityScore ?? 5;
+  1192→
+  1193→  // Factor 1: Number of affected papers (more papers = more systemic = higher severity)
+  1194→  const affectedCount = gap.affectedPapers?.length ?? 0;
+  1195→  if (affectedCount >= 4) {
+  1196→    severityScore = Math.min(10, severityScore + 2);
+  1197→  } else if (affectedCount >= 3) {
+  1198→    severityScore = Math.min(10, severityScore + 1.5);
+  1199→  } else if (affectedCount >= 2) {
+  1200→    severityScore = Math.min(10, severityScore + 1);
+  1201→  }
+  1202→
+  1203→  // Factor 2: Gap type criticality weights
+  1204→  const gapTypeCriticality: Record<GapType, number> = {
+  1205→    conflicting_results: 1.5,
+  1206→    ethical_concern: 1.4,
+  1207→    no_real_world_validation: 1.3,
+  1208→    reproducibility_issue: 1.2,
+  1209→    small_sample_size: 1.1,
+  1210→    methodology_gap: 1.1,
+  1211→    missing_dataset: 1.0,
+  1212→    limited_scope: 0.9,
+  1213→    missing_edge_case: 0.9,
+  1214→    outdated_method: 0.8,
+  1215→    cross_domain_gap: 0.7,
+  1216→    scalability_limitation: 1.0,
+  1217→  };
+  1218→
+  1219→  if (gap.gapType) {
+  1220→    severityScore = Math.min(10, severityScore * gapTypeCriticality[gap.gapType]);
+  1221→  }
+  1222→
+  1223→  // Factor 3: Supporting evidence strength
+  1224→  const evidenceCount = gap.supportingEvidence?.length ?? 0;
+  1225→  if (evidenceCount >= 3) {
+  1226→    severityScore = Math.min(10, severityScore + 0.5);
+  1227→  } else if (evidenceCount >= 2) {
+  1228→    severityScore = Math.min(10, severityScore + 0.3);
+  1229→  }
+  1230→
+  1231→  // Factor 4: How common this gap type is across papers (more common = more severe)
+  1232→  if (gap.gapType && papers.length > 0) {
+  1233→    const sameTypeCount = papers.filter((p) => {
+  1234→      const text = `${p.abstract} ${p.limitations} ${p.conclusion}`.toLowerCase();
+  1235→      const typeKeywords: Record<GapType, string[]> = {
+  1236→        missing_dataset: ['dataset', 'data', 'benchmark'],
+  1237→        methodology_gap: ['method', 'approach', 'technique'],
+  1238→        conflicting_results: ['conflict', 'contradict', 'oppose'],
+  1239→        no_real_world_validation: ['real-world', 'deployment', 'practical'],
+  1240→        small_sample_size: ['sample', 'size', 'small'],
+  1241→        missing_edge_case: ['edge case', 'corner case', 'boundary'],
+  1242→        outdated_method: ['outdated', 'legacy', 'old'],
+  1243→        cross_domain_gap: ['domain', 'field', 'area'],
+  1244→        limited_scope: ['scope', 'limited', 'narrow'],
+  1245→        reproducibility_issue: ['reproducib', 'replicat', 'code'],
+  1246→        ethical_concern: ['ethic', 'bias', 'fairness'],
+  1247→        scalability_limitation: ['scalab', 'scale', 'large'],
+  1248→      };
+  1249→      const keywords = typeKeywords[gap.gapType] ?? [];
+  1250→      return keywords.some((kw) => text.includes(kw));
+  1251→    }).length;
+  1252→
+  1253→    if (sameTypeCount >= 3) {
+  1254→      severityScore = Math.min(10, severityScore + 0.5);
+  1255→    }
+  1256→  }
+  1257→
+  1258→  // ── Novelty Scoring ──
+  1259→  let noveltyScore = gap.noveltyScore ?? 50;
+  1260→
+  1261→  // Factor 1: Gap type novelty weights
+  1262→  const gapTypeNovelty: Record<GapType, number> = {
+  1263→    cross_domain_gap: 1.3,
+  1264→    conflicting_results: 1.2,
+  1265→    missing_edge_case: 1.15,
+  1266→    methodology_gap: 1.1,
+  1267→    no_real_world_validation: 1.05,
+  1268→    missing_dataset: 1.0,
+  1269→    limited_scope: 0.9,
+  1270→    scalability_limitation: 0.95,
+  1271→    small_sample_size: 0.85,
+  1272→    reproducibility_issue: 0.8,
+  1273→    outdated_method: 0.85,
+  1274→    ethical_concern: 1.1,
+  1275→  };
+  1276→
+  1277→  if (gap.gapType) {
+  1278→    noveltyScore = Math.min(100, noveltyScore * gapTypeNovelty[gap.gapType]);
+  1279→  }
+  1280→
+  1281→  // Factor 2: Uniqueness - if few gaps of this type exist, higher novelty
+  1282→  // (This is context-dependent; we approximate by checking how specific the description is)
+  1283→  const descriptionLength = gap.description?.length ?? 0;
+  1284→  if (descriptionLength > 100) {
+  1285→    // More specific descriptions suggest more targeted, novel gaps
+  1286→    noveltyScore = Math.min(100, noveltyScore + 5);
+  1287→  }
+  1288→
+  1289→  // Factor 3: Check if existing papers partially address this gap
+  1290→  // If papers mention related future work, they partially acknowledge but don't solve it
+  1291→  if (gap.affectedPapers && gap.affectedPapers.length > 0) {
+  1292→    let partialAddressCount = 0;
+  1293→    for (const paperId of gap.affectedPapers) {
+  1294→      const paper = papers.find((p) => p.id === paperId);
+  1295→      if (paper) {
+  1296→        const futureWorkText = `${paper.limitations} ${paper.conclusion}`.toLowerCase();
+  1297→        if (futureWorkText.includes('future work') || futureWorkText.includes('future research')) {
+  1298→          partialAddressCount++;
+  1299→        }
+  1300→      }
+  1301→    }
+  1302→    // If papers acknowledge but don't solve, novelty is moderate (not brand new, but unaddressed)
+  1303→    if (partialAddressCount > 0 && partialAddressCount < gap.affectedPapers.length) {
+  1304→      noveltyScore = Math.min(100, noveltyScore + 5);
+  1305→    } else if (partialAddressCount === gap.affectedPapers.length) {
+  1306→      // All papers acknowledge it - still novel but less surprising
+  1307→      noveltyScore = Math.min(100, noveltyScore - 5);
+  1308→    }
+  1309→  }
+  1310→
+  1311→  // Factor 4: Cross-paper gaps are more novel than single-paper gaps
+  1312→  if (affectedCount >= 3) {
+  1313→    noveltyScore = Math.min(100, noveltyScore + 10);
+  1314→  } else if (affectedCount >= 2) {
+  1315→    noveltyScore = Math.min(100, noveltyScore + 5);
+  1316→  }
+  1317→
+  1318→  return {
+  1319→    severityScore: Math.round(Math.max(1, Math.min(10, severityScore)) * 10) / 10,
+  1320→    noveltyScore: Math.round(Math.max(0, Math.min(100, noveltyScore))),
+  1321→  };
+  1322→}
+  1323→
+  1324→// ─── Main Entry Point ────────────────────────────────────────────────────────
+  1325→
+  1326→/**
+  1327→ * Main entry point that runs all gap detection rules.
+  1328→ * Combines results from all detectors, deduplicates, re-scores, and sorts by severity.
+  1329→ */
+  1330→export function detectGaps(papers: ExtractedPaper[]): ResearchGap[] {
+  1331→  if (papers.length === 0) return [];
+  1332→
+  1333→  // Run all detectors
+  1334→  const limitationGaps = detectLimitations(papers);
+  1335→  const methodologyGaps = detectMethodologyGaps(papers);
+  1336→  const datasetGaps = detectDatasetGaps(papers);
+  1337→  const conflictGaps = detectConflicts(papers);
+  1338→  const crossDomainGaps = detectCrossDomainGaps(papers);
+  1339→
+  1340→  // Combine all gaps
+  1341→  const allGaps: ResearchGap[] = [
+  1342→    ...limitationGaps,
+  1343→    ...methodologyGaps,
+  1344→    ...datasetGaps,
+  1345→    ...conflictGaps,
+  1346→    ...crossDomainGaps,
+  1347→  ];
+  1348→
+  1349→  // Deduplicate: merge gaps with the same gapType and overlapping affected papers
+  1350→  const mergedGaps = deduplicateGaps(allGaps);
+  1351→
+  1352→  // Re-score all gaps using the scoring function
+  1353→  const scoredGaps = mergedGaps.map((gap) => {
+  1354→    const scores = scoreGap(gap, papers);
+  1355→    return {
+  1356→      ...gap,
+  1357→      severityScore: scores.severityScore,
+  1358→      noveltyScore: scores.noveltyScore,
+  1359→    };
+  1360→  });
+  1361→
+  1362→  // Sort by severity score (highest first), then by novelty score as tiebreaker
+  1363→  scoredGaps.sort((a, b) => {
+  1364→    if (b.severityScore !== a.severityScore) {
+  1365→      return b.severityScore - a.severityScore;
+  1366→    }
+  1367→    return b.noveltyScore - a.noveltyScore;
+  1368→  });
+  1369→
+  1370→  return scoredGaps;
+  1371→}
+  1372→
+  1373→/**
+  1374→ * Deduplicate and merge gaps that describe the same or very similar issues.
+  1375→ * Merges gaps of the same type with overlapping affected papers.
+  1376→ */
+  1377→function deduplicateGaps(gaps: ResearchGap[]): ResearchGap[] {
+  1378→  const merged: ResearchGap[] = [];
+  1379→  const used = new Set<number>();
+  1380→
+  1381→  for (let i = 0; i < gaps.length; i++) {
+  1382→    if (used.has(i)) continue;
+  1383→
+  1384→    const current = { ...gaps[i] };
+  1385→    let wasMerged = false;
+  1386→
+  1387→    for (let j = i + 1; j < gaps.length; j++) {
+  1388→      if (used.has(j)) continue;
+  1389→
+  1390→      const other = gaps[j];
+  1391→
+  1392→      // Check if gaps should be merged
+  1393→      if (shouldMergeGaps(current, other)) {
+  1394→        // Merge: combine affected papers and supporting evidence
+  1395→        const combinedPapers = new Set(current.affectedPapers.concat(other.affectedPapers));
+  1396→        const combinedTitles = new Set(current.affectedPaperTitles.concat(other.affectedPaperTitles));
+  1397→        const combinedEvidence = current.supportingEvidence.concat(other.supportingEvidence);
+  1398→
+  1399→        current.affectedPapers = Array.from(combinedPapers);
+  1400→        current.affectedPaperTitles = Array.from(combinedTitles);
+  1401→        current.supportingEvidence = combinedEvidence;
+  1402→
+  1403→        // Take the higher severity and novelty
+  1404→        current.severityScore = Math.max(current.severityScore, other.severityScore);
+  1405→        current.noveltyScore = Math.max(current.noveltyScore, other.noveltyScore);
+  1406→
+  1407→        // Merge explanations if they're different enough
+  1408→        if (current.explanation !== other.explanation) {
+  1409→          current.explanation = `${current.explanation} Additionally, ${other.explanation.charAt(0).toLowerCase()}${other.explanation.slice(1)}`;
+  1410→        }
+  1411→
+  1412→        used.add(j);
+  1413→        wasMerged = true;
+  1414→      }
+  1415→    }
+  1416→
+  1417→    // Assign new ID if merged
+  1418→    if (wasMerged) {
+  1419→      current.id = randomUUID();
+  1420→    }
+  1421→
+  1422→    merged.push(current);
+  1423→    used.add(i);
+  1424→  }
+  1425→
+  1426→  return merged;
+  1427→}
+  1428→
+  1429→/**
+  1430→ * Determine if two gaps should be merged.
+  1431→ * Merge if: same gap type AND significant overlap in affected papers OR very similar descriptions.
+  1432→ */
+  1433→function shouldMergeGaps(a: ResearchGap, b: ResearchGap): boolean {
+  1434→  // Must be same gap type
+  1435→  if (a.gapType !== b.gapType) return false;
+  1436→
+  1437→  // Check affected paper overlap
+  1438→  const aSet = new Set(a.affectedPapers);
+  1439→  const bSet = new Set(b.affectedPapers);
+  1440→  let overlap = 0;
+  1441→  Array.from(aSet).forEach((id) => {
+  1442→    if (bSet.has(id)) overlap++;
+  1443→  });
+  1444→  const minSize = Math.min(aSet.size, bSet.size);
+  1445→  if (minSize > 0 && overlap / minSize >= 0.5) return true;
+  1446→
+  1447→  // Check description similarity (simple word overlap)
+  1448→  const aWords = new Set(a.description.toLowerCase().split(/\s+/));
+  1449→  const bWords = new Set(b.description.toLowerCase().split(/\s+/));
+  1450→  let wordOverlap = 0;
+  1451→  Array.from(aWords).forEach((w) => {
+  1452→    if (w.length > 3 && bWords.has(w)) wordOverlap++;
+  1453→  });
+  1454→  const minWords = Math.min(aWords.size, bWords.size);
+  1455→  if (minWords > 3 && wordOverlap / minWords >= 0.4) return true;
+  1456→
+  1457→  return false;
+  1458→}
+  1459→

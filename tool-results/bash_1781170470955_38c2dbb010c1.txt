@@ -1,0 +1,646 @@
+[info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[log] [HMR] connected
+[error] ./src/app/page.tsx:7:1
+Export ComparisonMatrixTab doesn't exist in target module
+   5 | import { UploadPanel } from '@/components/dashboard/UploadPanel';
+   6 | import { PaperOverviewTab } from '@/components/dashboard/PaperOverviewTab';
+>  7 | import { ComparisonMatrixTab } from '@/components/dashboard/ComparisonMatrixTab';
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { GapFinderTab } from '@/components/dashboard/GapFinderTab';
+   9 | import { ResearchIdeasTab } from '@/components/dashboard/ResearchIdeasTab';
+  10 | import { VisualizationTab } from '@/components/dashboard/VisualizationTab';
+
+The export ComparisonMatrixTab was not found in module [project]/src/components/dashboard/ComparisonMatrixTab.tsx [app-client] (ecmascript).
+Did you mean to import default?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+[error] ./src/app/page.tsx:7:1
+Export ComparisonMatrixTab doesn't exist in target module
+   5 | import { UploadPanel } from '@/components/dashboard/UploadPanel';
+   6 | import { PaperOverviewTab } from '@/components/dashboard/PaperOverviewTab';
+>  7 | import { ComparisonMatrixTab } from '@/components/dashboard/ComparisonMatrixTab';
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { GapFinderTab } from '@/components/dashboard/GapFinderTab';
+   9 | import { ResearchIdeasTab } from '@/components/dashboard/ResearchIdeasTab';
+  10 | import { VisualizationTab } from '@/components/dashboard/VisualizationTab';
+
+The export ComparisonMatrixTab was not found in module [project]/src/components/dashboard/ComparisonMatrixTab.tsx [app-ssr] (ecmascript).
+Did you mean to import default?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+[error] ./src/app/page.tsx:11:1
+Export ExportPanel doesn't exist in target module
+   9 | import { ResearchIdeasTab } from '@/components/dashboard/ResearchIdeasTab';
+  10 | import { VisualizationTab } from '@/components/dashboard/VisualizationTab';
+> 11 | import { ExportPanel } from '@/components/dashboard/ExportPanel';
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  12 | import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+  13 | import { Badge } from '@/components/ui/badge';
+  14 | import {
+
+The export ExportPanel was not found in module [project]/src/components/dashboard/ExportPanel.tsx [app-client] (ecmascript).
+Did you mean to import default?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+[error] ./src/app/page.tsx:11:1
+Export ExportPanel doesn't exist in target module
+   9 | import { ResearchIdeasTab } from '@/components/dashboard/ResearchIdeasTab';
+  10 | import { VisualizationTab } from '@/components/dashboard/VisualizationTab';
+> 11 | import { ExportPanel } from '@/components/dashboard/ExportPanel';
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  12 | import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+  13 | import { Badge } from '@/components/ui/badge';
+  14 | import {
+
+The export ExportPanel was not found in module [project]/src/components/dashboard/ExportPanel.tsx [app-ssr] (ecmascript).
+Did you mean to import default?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+[error] ./src/app/page.tsx:8:1
+Export GapFinderTab doesn't exist in target module
+   6 | import { PaperOverviewTab } from '@/components/dashboard/PaperOverviewTab';
+   7 | import { ComparisonMatrixTab } from '@/components/dashboard/ComparisonMatrixTab';
+>  8 | import { GapFinderTab } from '@/components/dashboard/GapFinderTab';
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   9 | import { ResearchIdeasTab } from '@/components/dashboard/ResearchIdeasTab';
+  10 | import { VisualizationTab } from '@/components/dashboard/VisualizationTab';
+  11 | import { ExportPanel } from '@/components/dashboard/ExportPanel';
+
+The export GapFinderTab was not found in module [project]/src/components/dashboard/GapFinderTab.tsx [app-client] (ecmascript).
+Did you mean to import default?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+[error] ./src/app/page.tsx:8:1
+Export GapFinderTab doesn't exist in target module
+   6 | import { PaperOverviewTab } from '@/components/dashboard/PaperOverviewTab';
+   7 | import { ComparisonMatrixTab } from '@/components/dashboard/ComparisonMatrixTab';
+>  8 | import { GapFinderTab } from '@/components/dashboard/GapFinderTab';
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   9 | import { ResearchIdeasTab } from '@/components/dashboard/ResearchIdeasTab';
+  10 | import { VisualizationTab } from '@/components/dashboard/VisualizationTab';
+  11 | import { ExportPanel } from '@/components/dashboard/ExportPanel';
+
+The export GapFinderTab was not found in module [project]/src/components/dashboard/GapFinderTab.tsx [app-ssr] (ecmascript).
+Did you mean to import default?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+[error] ./src/app/page.tsx:6:1
+Export PaperOverviewTab doesn't exist in target module
+  4 | import { useResearchStore } from '@/store/research-store';
+  5 | import { UploadPanel } from '@/components/dashboard/UploadPanel';
+> 6 | import { PaperOverviewTab } from '@/components/dashboard/PaperOverviewTab';
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  7 | import { ComparisonMatrixTab } from '@/components/dashboard/ComparisonMatrixTab';
+  8 | import { GapFinderTab } from '@/components/dashboard/GapFinderTab';
+  9 | import { ResearchIdeasTab } from '@/components/dashboard/ResearchIdeasTab';
+
+The export PaperOverviewTab was not found in module [project]/src/components/dashboard/PaperOverviewTab.tsx [app-client] (ecmascript).
+Did you mean to import default?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+[error] ./src/app/page.tsx:6:1
+Export PaperOverviewTab doesn't exist in target module
+  4 | import { useResearchStore } from '@/store/research-store';
+  5 | import { UploadPanel } from '@/components/dashboard/UploadPanel';
+> 6 | import { PaperOverviewTab } from '@/components/dashboard/PaperOverviewTab';
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  7 | import { ComparisonMatrixTab } from '@/components/dashboard/ComparisonMatrixTab';
+  8 | import { GapFinderTab } from '@/components/dashboard/GapFinderTab';
+  9 | import { ResearchIdeasTab } from '@/components/dashboard/ResearchIdeasTab';
+
+The export PaperOverviewTab was not found in module [project]/src/components/dashboard/PaperOverviewTab.tsx [app-ssr] (ecmascript).
+Did you mean to import default?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+[error] ./src/app/page.tsx:9:1
+Export ResearchIdeasTab doesn't exist in target module
+   7 | import { ComparisonMatrixTab } from '@/components/dashboard/ComparisonMatrixTab';
+   8 | import { GapFinderTab } from '@/components/dashboard/GapFinderTab';
+>  9 | import { ResearchIdeasTab } from '@/components/dashboard/ResearchIdeasTab';
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  10 | import { VisualizationTab } from '@/components/dashboard/VisualizationTab';
+  11 | import { ExportPanel } from '@/components/dashboard/ExportPanel';
+  12 | import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
+The export ResearchIdeasTab was not found in module [project]/src/components/dashboard/ResearchIdeasTab.tsx [app-client] (ecmascript).
+Did you mean to import default?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+[error] ./src/app/page.tsx:9:1
+Export ResearchIdeasTab doesn't exist in target module
+   7 | import { ComparisonMatrixTab } from '@/components/dashboard/ComparisonMatrixTab';
+   8 | import { GapFinderTab } from '@/components/dashboard/GapFinderTab';
+>  9 | import { ResearchIdeasTab } from '@/components/dashboard/ResearchIdeasTab';
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  10 | import { VisualizationTab } from '@/components/dashboard/VisualizationTab';
+  11 | import { ExportPanel } from '@/components/dashboard/ExportPanel';
+  12 | import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
+The export ResearchIdeasTab was not found in module [project]/src/components/dashboard/ResearchIdeasTab.tsx [app-ssr] (ecmascript).
+Did you mean to import default?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+[error] ./src/app/page.tsx:5:1
+Export UploadPanel doesn't exist in target module
+  3 | import { useState } from 'react';
+  4 | import { useResearchStore } from '@/store/research-store';
+> 5 | import { UploadPanel } from '@/components/dashboard/UploadPanel';
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  6 | import { PaperOverviewTab } from '@/components/dashboard/PaperOverviewTab';
+  7 | import { ComparisonMatrixTab } from '@/components/dashboard/ComparisonMatrixTab';
+  8 | import { GapFinderTab } from '@/components/dashboard/GapFinderTab';
+
+The export UploadPanel was not found in module [project]/src/components/dashboard/UploadPanel.tsx [app-client] (ecmascript).
+Did you mean to import default?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+[error] ./src/app/page.tsx:5:1
+Export UploadPanel doesn't exist in target module
+  3 | import { useState } from 'react';
+  4 | import { useResearchStore } from '@/store/research-store';
+> 5 | import { UploadPanel } from '@/components/dashboard/UploadPanel';
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  6 | import { PaperOverviewTab } from '@/components/dashboard/PaperOverviewTab';
+  7 | import { ComparisonMatrixTab } from '@/components/dashboard/ComparisonMatrixTab';
+  8 | import { GapFinderTab } from '@/components/dashboard/GapFinderTab';
+
+The export UploadPanel was not found in module [project]/src/components/dashboard/UploadPanel.tsx [app-ssr] (ecmascript).
+Did you mean to import default?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+[error] ./src/app/page.tsx:10:1
+Export VisualizationTab doesn't exist in target module
+   8 | import { GapFinderTab } from '@/components/dashboard/GapFinderTab';
+   9 | import { ResearchIdeasTab } from '@/components/dashboard/ResearchIdeasTab';
+> 10 | import { VisualizationTab } from '@/components/dashboard/VisualizationTab';
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  11 | import { ExportPanel } from '@/components/dashboard/ExportPanel';
+  12 | import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+  13 | import { Badge } from '@/components/ui/badge';
+
+The export VisualizationTab was not found in module [project]/src/components/dashboard/VisualizationTab.tsx [app-client] (ecmascript).
+Did you mean to import default?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+[error] ./src/app/page.tsx:10:1
+Export VisualizationTab doesn't exist in target module
+   8 | import { GapFinderTab } from '@/components/dashboard/GapFinderTab';
+   9 | import { ResearchIdeasTab } from '@/components/dashboard/ResearchIdeasTab';
+> 10 | import { VisualizationTab } from '@/components/dashboard/VisualizationTab';
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  11 | import { ExportPanel } from '@/components/dashboard/ExportPanel';
+  12 | import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+  13 | import { Badge } from '@/components/ui/badge';
+
+The export VisualizationTab was not found in module [project]/src/components/dashboard/VisualizationTab.tsx [app-ssr] (ecmascript).
+Did you mean to import default?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+[clear] console.clear
+[error] ./src/app/page.tsx:7:1
+Export ComparisonMatrixTab doesn't exist in target module
+   5 | import { UploadPanel } from '@/components/dashboard/UploadPanel';
+   6 | import { PaperOverviewTab } from '@/components/dashboard/PaperOverviewTab';
+>  7 | import { ComparisonMatrixTab } from '@/components/dashboard/ComparisonMatrixTab';
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { GapFinderTab } from '@/components/dashboard/GapFinderTab';
+   9 | import { ResearchIdeasTab } from '@/components/dashboard/ResearchIdeasTab';
+  10 | import { VisualizationTab } from '@/components/dashboard/VisualizationTab';
+
+The export ComparisonMatrixTab was not found in module [project]/src/components/dashboard/ComparisonMatrixTab.tsx [app-client] (ecmascript).
+Did you mean to import default?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+[error] ./src/app/page.tsx:7:1
+Export ComparisonMatrixTab doesn't exist in target module
+   5 | import { UploadPanel } from '@/components/dashboard/UploadPanel';
+   6 | import { PaperOverviewTab } from '@/components/dashboard/PaperOverviewTab';
+>  7 | import { ComparisonMatrixTab } from '@/components/dashboard/ComparisonMatrixTab';
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   8 | import { GapFinderTab } from '@/components/dashboard/GapFinderTab';
+   9 | import { ResearchIdeasTab } from '@/components/dashboard/ResearchIdeasTab';
+  10 | import { VisualizationTab } from '@/components/dashboard/VisualizationTab';
+
+The export ComparisonMatrixTab was not found in module [project]/src/components/dashboard/ComparisonMatrixTab.tsx [app-ssr] (ecmascript).
+Did you mean to import default?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+[error] ./src/app/page.tsx:11:1
+Export ExportPanel doesn't exist in target module
+   9 | import { ResearchIdeasTab } from '@/components/dashboard/ResearchIdeasTab';
+  10 | import { VisualizationTab } from '@/components/dashboard/VisualizationTab';
+> 11 | import { ExportPanel } from '@/components/dashboard/ExportPanel';
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  12 | import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+  13 | import { Badge } from '@/components/ui/badge';
+  14 | import {
+
+The export ExportPanel was not found in module [project]/src/components/dashboard/ExportPanel.tsx [app-client] (ecmascript).
+Did you mean to import default?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+[error] ./src/app/page.tsx:11:1
+Export ExportPanel doesn't exist in target module
+   9 | import { ResearchIdeasTab } from '@/components/dashboard/ResearchIdeasTab';
+  10 | import { VisualizationTab } from '@/components/dashboard/VisualizationTab';
+> 11 | import { ExportPanel } from '@/components/dashboard/ExportPanel';
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  12 | import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+  13 | import { Badge } from '@/components/ui/badge';
+  14 | import {
+
+The export ExportPanel was not found in module [project]/src/components/dashboard/ExportPanel.tsx [app-ssr] (ecmascript).
+Did you mean to import default?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+[error] ./src/app/page.tsx:8:1
+Export GapFinderTab doesn't exist in target module
+   6 | import { PaperOverviewTab } from '@/components/dashboard/PaperOverviewTab';
+   7 | import { ComparisonMatrixTab } from '@/components/dashboard/ComparisonMatrixTab';
+>  8 | import { GapFinderTab } from '@/components/dashboard/GapFinderTab';
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   9 | import { ResearchIdeasTab } from '@/components/dashboard/ResearchIdeasTab';
+  10 | import { VisualizationTab } from '@/components/dashboard/VisualizationTab';
+  11 | import { ExportPanel } from '@/components/dashboard/ExportPanel';
+
+The export GapFinderTab was not found in module [project]/src/components/dashboard/GapFinderTab.tsx [app-client] (ecmascript).
+Did you mean to import default?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+[error] ./src/app/page.tsx:8:1
+Export GapFinderTab doesn't exist in target module
+   6 | import { PaperOverviewTab } from '@/components/dashboard/PaperOverviewTab';
+   7 | import { ComparisonMatrixTab } from '@/components/dashboard/ComparisonMatrixTab';
+>  8 | import { GapFinderTab } from '@/components/dashboard/GapFinderTab';
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   9 | import { ResearchIdeasTab } from '@/components/dashboard/ResearchIdeasTab';
+  10 | import { VisualizationTab } from '@/components/dashboard/VisualizationTab';
+  11 | import { ExportPanel } from '@/components/dashboard/ExportPanel';
+
+The export GapFinderTab was not found in module [project]/src/components/dashboard/GapFinderTab.tsx [app-ssr] (ecmascript).
+Did you mean to import default?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+[error] ./src/app/page.tsx:6:1
+Export PaperOverviewTab doesn't exist in target module
+  4 | import { useResearchStore } from '@/store/research-store';
+  5 | import { UploadPanel } from '@/components/dashboard/UploadPanel';
+> 6 | import { PaperOverviewTab } from '@/components/dashboard/PaperOverviewTab';
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  7 | import { ComparisonMatrixTab } from '@/components/dashboard/ComparisonMatrixTab';
+  8 | import { GapFinderTab } from '@/components/dashboard/GapFinderTab';
+  9 | import { ResearchIdeasTab } from '@/components/dashboard/ResearchIdeasTab';
+
+The export PaperOverviewTab was not found in module [project]/src/components/dashboard/PaperOverviewTab.tsx [app-client] (ecmascript).
+Did you mean to import default?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+[error] ./src/app/page.tsx:6:1
+Export PaperOverviewTab doesn't exist in target module
+  4 | import { useResearchStore } from '@/store/research-store';
+  5 | import { UploadPanel } from '@/components/dashboard/UploadPanel';
+> 6 | import { PaperOverviewTab } from '@/components/dashboard/PaperOverviewTab';
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  7 | import { ComparisonMatrixTab } from '@/components/dashboard/ComparisonMatrixTab';
+  8 | import { GapFinderTab } from '@/components/dashboard/GapFinderTab';
+  9 | import { ResearchIdeasTab } from '@/components/dashboard/ResearchIdeasTab';
+
+The export PaperOverviewTab was not found in module [project]/src/components/dashboard/PaperOverviewTab.tsx [app-ssr] (ecmascript).
+Did you mean to import default?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+[error] ./src/app/page.tsx:9:1
+Export ResearchIdeasTab doesn't exist in target module
+   7 | import { ComparisonMatrixTab } from '@/components/dashboard/ComparisonMatrixTab';
+   8 | import { GapFinderTab } from '@/components/dashboard/GapFinderTab';
+>  9 | import { ResearchIdeasTab } from '@/components/dashboard/ResearchIdeasTab';
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  10 | import { VisualizationTab } from '@/components/dashboard/VisualizationTab';
+  11 | import { ExportPanel } from '@/components/dashboard/ExportPanel';
+  12 | import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
+The export ResearchIdeasTab was not found in module [project]/src/components/dashboard/ResearchIdeasTab.tsx [app-client] (ecmascript).
+Did you mean to import default?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+[error] ./src/app/page.tsx:9:1
+Export ResearchIdeasTab doesn't exist in target module
+   7 | import { ComparisonMatrixTab } from '@/components/dashboard/ComparisonMatrixTab';
+   8 | import { GapFinderTab } from '@/components/dashboard/GapFinderTab';
+>  9 | import { ResearchIdeasTab } from '@/components/dashboard/ResearchIdeasTab';
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  10 | import { VisualizationTab } from '@/components/dashboard/VisualizationTab';
+  11 | import { ExportPanel } from '@/components/dashboard/ExportPanel';
+  12 | import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
+The export ResearchIdeasTab was not found in module [project]/src/components/dashboard/ResearchIdeasTab.tsx [app-ssr] (ecmascript).
+Did you mean to import default?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+[error] ./src/app/page.tsx:5:1
+Export UploadPanel doesn't exist in target module
+  3 | import { useState } from 'react';
+  4 | import { useResearchStore } from '@/store/research-store';
+> 5 | import { UploadPanel } from '@/components/dashboard/UploadPanel';
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  6 | import { PaperOverviewTab } from '@/components/dashboard/PaperOverviewTab';
+  7 | import { ComparisonMatrixTab } from '@/components/dashboard/ComparisonMatrixTab';
+  8 | import { GapFinderTab } from '@/components/dashboard/GapFinderTab';
+
+The export UploadPanel was not found in module [project]/src/components/dashboard/UploadPanel.tsx [app-client] (ecmascript).
+Did you mean to import default?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+[error] ./src/app/page.tsx:5:1
+Export UploadPanel doesn't exist in target module
+  3 | import { useState } from 'react';
+  4 | import { useResearchStore } from '@/store/research-store';
+> 5 | import { UploadPanel } from '@/components/dashboard/UploadPanel';
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  6 | import { PaperOverviewTab } from '@/components/dashboard/PaperOverviewTab';
+  7 | import { ComparisonMatrixTab } from '@/components/dashboard/ComparisonMatrixTab';
+  8 | import { GapFinderTab } from '@/components/dashboard/GapFinderTab';
+
+The export UploadPanel was not found in module [project]/src/components/dashboard/UploadPanel.tsx [app-ssr] (ecmascript).
+Did you mean to import default?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+[error] ./src/app/page.tsx:10:1
+Export VisualizationTab doesn't exist in target module
+   8 | import { GapFinderTab } from '@/components/dashboard/GapFinderTab';
+   9 | import { ResearchIdeasTab } from '@/components/dashboard/ResearchIdeasTab';
+> 10 | import { VisualizationTab } from '@/components/dashboard/VisualizationTab';
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  11 | import { ExportPanel } from '@/components/dashboard/ExportPanel';
+  12 | import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+  13 | import { Badge } from '@/components/ui/badge';
+
+The export VisualizationTab was not found in module [project]/src/components/dashboard/VisualizationTab.tsx [app-client] (ecmascript).
+Did you mean to import default?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+[error] ./src/app/page.tsx:10:1
+Export VisualizationTab doesn't exist in target module
+   8 | import { GapFinderTab } from '@/components/dashboard/GapFinderTab';
+   9 | import { ResearchIdeasTab } from '@/components/dashboard/ResearchIdeasTab';
+> 10 | import { VisualizationTab } from '@/components/dashboard/VisualizationTab';
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  11 | import { ExportPanel } from '@/components/dashboard/ExportPanel';
+  12 | import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+  13 | import { Badge } from '@/components/ui/badge';
+
+The export VisualizationTab was not found in module [project]/src/components/dashboard/VisualizationTab.tsx [app-ssr] (ecmascript).
+Did you mean to import default?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+[log] [Fast Refresh] rebuilding
+[log] [Fast Refresh] rebuilding
+[warning] [Fast Refresh] performing full reload because your application had an unrecoverable error
+[clear] console.clear
+[log] [Fast Refresh] done in 119ms
+[log] [Fast Refresh] rebuilding
+[log] [Fast Refresh] done in 673ms
+[info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[log] [HMR] connected
+[log] [Fast Refresh] rebuilding
+[log] [Fast Refresh] done in 175ms
+[log] [Fast Refresh] rebuilding
+[log] [Fast Refresh] done in 150ms
+[log] [Fast Refresh] rebuilding
+[log] [Fast Refresh] done in 217ms
+[log] [Fast Refresh] rebuilding
+[log] [Fast Refresh] done in 141ms
+[log] [Fast Refresh] rebuilding
+[log] [Fast Refresh] done in 126ms
+[log] [Fast Refresh] rebuilding
+[log] [Fast Refresh] done in 122ms
+[info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[log] [HMR] connected
+[log] [Fast Refresh] rebuilding
+[log] [Fast Refresh] done in 262ms
+[error] Analysis pipeline error: {stack: "TypeError: (0 , __TURBOPACK__imported__module__$5b…00/_next/static/chunks/src_80758b33._.js:1097:30)", message: "(0 , __TURBOPACK__imported__module__$5b$project$5d…28$ecmascript$29$__.randomUUID) is not a function", Symbol(next.console.error.digest): "NEXT_CONSOLE_ERROR"}
+[error] Analysis pipeline error: {stack: "TypeError: (0 , __TURBOPACK__imported__module__$5b…00/_next/static/chunks/src_80758b33._.js:1097:30)", message: "(0 , __TURBOPACK__imported__module__$5b$project$5d…28$ecmascript$29$__.randomUUID) is not a function", Symbol(next.console.error.digest): "NEXT_CONSOLE_ERROR"}
