@@ -5,6 +5,7 @@ import { useResearchStore } from '@/store/research-store';
 import { RESEARCH_FIELDS } from '@/lib/types';
 import type { ResearchGap, ResearchIdea } from '@/lib/types';
 import { generateId } from '@/lib/utils-uuid';
+import { analyzeGaps, analyzeIdeas } from '@/lib/client-ai';
 
 // Dynamic imports to avoid SSR issues with pdf.js and crypto
 const loadPdfExtractor = () => import('@/lib/pdf-extractor');
@@ -237,51 +238,15 @@ export default function UploadPanel() {
       store.setProgress(55);
       store.setCurrentStep('Enhancing gaps with AI...');
 
-      // Step 4: AI-enhanced gaps (using Research Gap Extraction Agent)
-      let aiGaps: ResearchGap[] = [];
-      let agentGapOutput: Record<string, unknown> | null = null;
-      try {
-        const gapsRes = await fetch('/api/analyze', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            type: 'gaps',
-            data: { papers },
-            field: selectedField,
-          }),
-        });
-        const gapsData = await gapsRes.json();
-        if (gapsData.success && gapsData.gaps?.length > 0) {
-          aiGaps = gapsData.gaps;
-          agentGapOutput = gapsData.agentOutput || null;
-        }
-      } catch {
-        // AI gap enhancement failed — continue with rule-based only
-      }
+      // Step 4: AI-enhanced gaps (works with backend OR HuggingFace fallback)
+      const { gaps: aiGaps, agentOutput: agentGapOutput } = await analyzeGaps(papers, selectedField);
 
       store.setProgress(75);
       store.setCurrentStep('Enhancing ideas with AI...');
 
-      // Step 5: AI-enhanced ideas (using Research Idea Generation Agent)
-      let aiIdeas: ResearchIdea[] = [];
-      try {
-        const mergedGaps = aiGaps.length > 0 ? aiGaps : gaps;
-        const ideasRes = await fetch('/api/analyze', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            type: 'ideas',
-            data: { papers, gaps: mergedGaps, agentOutput: agentGapOutput },
-            field: selectedField,
-          }),
-        });
-        const ideasData = await ideasRes.json();
-        if (ideasData.success && ideasData.ideas?.length > 0) {
-          aiIdeas = ideasData.ideas;
-        }
-      } catch {
-        // AI idea enhancement failed — continue with rule-based only
-      }
+      // Step 5: AI-enhanced ideas (works with backend OR HuggingFace fallback)
+      const mergedGaps = aiGaps.length > 0 ? aiGaps : gaps;
+      const aiIdeas = await analyzeIdeas(papers, mergedGaps, selectedField, agentGapOutput);
 
       store.setProgress(90);
       store.setCurrentStep('Finalizing results...');

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useResearchStore } from '@/store/research-store';
+import { summarizePaper } from '@/lib/client-ai';
 import {
   Card,
   CardHeader,
@@ -58,20 +59,11 @@ export default function PaperOverviewTab() {
     setSummarizingIds((prev) => new Set(prev).add(paperId));
 
     try {
-      const res = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'summarize',
-          data: { paper },
-        }),
-      });
-
-      const json = await res.json();
-      if (json.success && json.summary) {
+      const summary = await summarizePaper(paper);
+      if (summary) {
         setAiSummaries((prev) => ({
           ...prev,
-          [paperId]: json.summary,
+          [paperId]: summary,
         }));
       } else {
         setAiSummaries((prev) => ({
