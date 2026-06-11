@@ -2,13 +2,21 @@
  * Client-side AI analysis helper.
  * Works in two modes:
  * 1. With backend (Next.js API routes) — full AI via z-ai-web-dev-sdk
- * 2. Without backend (GitHub Pages) — uses HuggingFace Inference API (free) directly from browser
+ * 2. Without backend (GitHub Pages) — uses free AI APIs directly from browser
  */
 
 import type { ResearchGap, ResearchIdea, ExtractedPaper } from './types';
 import { generateId } from './utils-uuid';
 
-// ─── Gap Extraction Agent Prompt ─────────────────────────────────────────────
+// ─── Detect if running on GitHub Pages ──────────────────────────────────────
+
+function isGitHubPages(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.location.hostname.includes('github.io') ||
+    window.location.pathname.startsWith('/research-gap-ai-agent');
+}
+
+// ─── Agent Prompts ───────────────────────────────────────────────────────────
 
 const GAP_AGENT_PROMPT = `You are a Research Gap Extraction Agent. Output ONLY valid JSON. No explanations, no markdown, no extra text.
 
@@ -22,7 +30,7 @@ Return exactly this structure:
   "priority_gaps_for_next_agent":["gap_id"]
 }
 
-Identify ALL research gaps: missing comparisons, missing datasets, weak assumptions, outdated methods, lack of real-world testing, contradictions.ONLY JSON.`;
+Identify ALL research gaps: missing comparisons, missing datasets, weak assumptions, outdated methods, lack of real-world testing, contradictions. ONLY JSON.`;
 
 const IDEA_AGENT_PROMPT = `You are a Research Idea Generation Agent. Output ONLY valid JSON. No explanations, no markdown, no extra text.
 
@@ -39,14 +47,13 @@ const SUMMARIZE_AGENT_PROMPT = `You are a Paper Summarization Agent. Output ONLY
 
 Return: {"key_contributions":["string"],"research_focus":"string","strengths":["string"],"weaknesses":["string"],"methodology_type":"string","datasets_used":["string"],"claimed_results":"string"}`;
 
-// ─── Try Backend API First, Then Fall Back to HuggingFace ─────────────────────
+// ─── API Call Functions ──────────────────────────────────────────────────────
 
 async function callBackendAPI(type: string, data: Record<string, unknown>): Promise<Record<string, unknown> | null> {
+  if (isGitHubPages()) return null; // Skip backend on GitHub Pages
+
   try {
-    const basePath = typeof window !== 'undefined' && window.__NEXT_DATA__?.basePath
-      ? window.__NEXT_DATA__.basePath
-      : '';
-    const res = await fetch(`${basePath}/api/analyze`, {
+    const res = await fetch('/api/analyze', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type, ...data }),
@@ -56,14 +63,16 @@ async function callBackendAPI(type: string, data: Record<string, unknown>): Prom
       if (json.success) return json;
     }
   } catch {
-    // Backend not available (GitHub Pages)
+    // Backend not available
   }
   return null;
 }
 
-async function callHuggingFace(prompt: string, userMessage: string): Promise<string | null> {
+async function callFreeAI(prompt: string, userMessage: string): Promise<string | null> {
+  // Try multiple free AI APIs as fallbacks
+
+  // 1. Try HuggingFace Inference API (free tier)
   try {
-    // Use HuggingFace free inference API with a text-generation model
     const response = await fetch(
       'https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2',
       {
@@ -86,9 +95,67 @@ async function callHuggingFace(prompt: string, userMessage: string): Promise<str
         return data[0].generated_text;
       }
     }
+
+    // If model is loading, wait and retry
+    if (response.status === 503) {
+      const data = await response.json();
+      const waitTime = data.estimated_time || 20;
+      await new Promise(resolve => setTimeout(resolve, Math.min(waitTime * 1000, 30000)));
+
+      const retryResponse = await fetch(
+        'https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            inputs: `<s>[INST] ${prompt}\n\n${userMessage} [/INST]`,
+            parameters: {
+              max_new_tokens: 2048,
+              temperature: 0.3,
+              return_full_text: false,
+            },
+          }),
+        }
+      );
+
+      if (retryResponse.ok) {
+        const retryData = await retryResponse.json();
+        if (Array.isArray(retryData) && retryData[0]?.generated_text) {
+          return retryData[0].generated_text;
+        }
+      }
+    }
   } catch {
     // HuggingFace API not available
   }
+
+  // 2. Try alternative model on HuggingFace
+  try {
+    const response = await fetch(
+      'https://api-inference.huggingface.co/models/google/flan-t5-large',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          inputs: `${prompt}\n\n${userMessage}`,
+          parameters: {
+            max_new_tokens: 1024,
+            temperature: 0.3,
+          },
+        }),
+      }
+    );
+
+    if (response.ok) {
+      const data = await response.json();
+      if (Array.isArray(data) && data[0]?.generated_text) {
+        return data[0].generated_text;
+      }
+    }
+  } catch {
+    // Alternative model not available
+  }
+
   return null;
 }
 
@@ -113,13 +180,13 @@ export async function analyzeGaps(
   papers: ExtractedPaper[],
   field: string
 ): Promise<{ gaps: ResearchGap[]; agentOutput: Record<string, unknown> | null }> {
-  // Try backend first
+  // Try backend first (local dev with z-ai-web-dev-sdk)
   const backend = await callBackendAPI('gaps', { data: { papers }, field });
   if (backend && backend.gaps?.length) {
     return { gaps: backend.gaps as ResearchGap[], agentOutput: (backend.agentOutput as Record<string, unknown>) || null };
   }
 
-  // Fallback: Try HuggingFace
+  // Fallback: Try free AI APIs (works on GitHub Pages)
   const paperSummaries = papers.map((p, i) => ({
     paper_id: p.id || `P${i + 1}`,
     title: p.title,
@@ -128,12 +195,12 @@ export async function analyzeGaps(
     limitations: p.limitations?.substring(0, 300),
   }));
 
-  const hfResponse = await callHuggingFace(
+  const aiResponse = await callFreeAI(
     GAP_AGENT_PROMPT,
     `Analyze these research papers in "${field}":\n${JSON.stringify(paperSummaries, null, 2)}\n\nOutput the structured JSON now.`
   );
 
-  const parsed = parseJSON(hfResponse);
+  const parsed = parseJSON(aiResponse);
   if (parsed?.identified_gaps) {
     const gaps = mapAgentGapsToUI(parsed, papers);
     return { gaps, agentOutput: parsed };
@@ -155,7 +222,7 @@ export async function analyzeIdeas(
     return backend.ideas as ResearchIdea[];
   }
 
-  // Fallback: Try HuggingFace
+  // Fallback: Try free AI APIs
   const gapInput = agentOutput || gaps.map((g, i) => ({
     gap_id: g.id || `G${i + 1}`,
     description: g.description,
@@ -163,12 +230,18 @@ export async function analyzeIdeas(
     severity: g.severityScore,
   }));
 
-  const hfResponse = await callHuggingFace(
+  const paperSummaries = papers.map((p, i) => ({
+    paper_id: p.id || `P${i + 1}`,
+    title: p.title,
+    keywords: p.keywords?.slice(0, 5),
+  }));
+
+  const aiResponse = await callFreeAI(
     IDEA_AGENT_PROMPT,
-    `Field: "${field}"\nGAP ANALYSIS:\n${JSON.stringify(gapInput, null, 2)}\n\nOutput the structured JSON now.`
+    `Field: "${field}"\nGAP ANALYSIS:\n${JSON.stringify(gapInput, null, 2)}\nPAPERS:\n${JSON.stringify(paperSummaries, null, 2)}\n\nOutput the structured JSON now.`
   );
 
-  const parsed = parseJSON(hfResponse);
+  const parsed = parseJSON(aiResponse);
   if (parsed?.research_ideas) {
     return mapAgentIdeasToUI(parsed);
   }
@@ -183,20 +256,20 @@ export async function summarizePaper(
   const backend = await callBackendAPI('summarize', { data: { paper } });
   if (backend?.summary) return backend.summary as Record<string, unknown>;
 
-  // Fallback: Try HuggingFace
-  const hfResponse = await callHuggingFace(
+  // Fallback: Try free AI APIs
+  const aiResponse = await callFreeAI(
     SUMMARIZE_AGENT_PROMPT,
     `Summarize: Title: ${paper.title}\nAbstract: ${paper.abstract}\nMethodology: ${paper.methodology?.substring(0, 500)}\n\nOutput JSON now.`
   );
 
-  return parseJSON(hfResponse);
+  return parseJSON(aiResponse);
 }
 
 // ─── Mapping Functions ───────────────────────────────────────────────────────
 
 function mapAgentGapsToUI(
   agentOutput: Record<string, unknown>,
-  papers: ExtractedPaper[]
+  _papers: ExtractedPaper[]
 ): ResearchGap[] {
   const identifiedGaps = (agentOutput.identified_gaps || []) as Array<{
     gap_id?: string; description?: string; type?: string;

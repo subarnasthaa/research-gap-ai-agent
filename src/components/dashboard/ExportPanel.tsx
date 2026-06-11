@@ -271,23 +271,28 @@ export default function ExportPanel() {
       };
       const json = JSON.stringify(jsonData, null, 2);
 
-      const response = await fetch('/api/gist?XTransformPort=3000', {
+      // Call GitHub Gist API directly from browser (supports CORS)
+      const response = await fetch('https://api.github.com/gists', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'Content-Type': 'application/json',
+          'User-Agent': 'Research-Gap-AI-Agent',
+        },
         body: JSON.stringify({
-          token,
+          description: 'Research Gap Analysis Report',
+          public: false,
           files: {
             'research-gap-analysis.md': { content: markdown },
             'analysis-data.json': { content: json },
           },
-          description: 'Research Gap Analysis Report',
-          public: false,
         }),
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Failed to create Gist' }));
-        throw new Error(errorData.error || 'Failed to create Gist');
+        const errorData = await response.json().catch(() => ({ message: 'Failed to create Gist' }));
+        throw new Error(errorData.message || `GitHub API error: ${response.status}`);
       }
 
       const result = await response.json();

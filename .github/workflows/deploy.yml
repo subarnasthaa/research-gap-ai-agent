@@ -22,15 +22,17 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
+        uses: oven-sh/setup-bun@v2
 
       - name: Install dependencies
         run: bun install
 
+      # API routes are incompatible with static export — temporarily remove them
+      - name: Remove API routes for static build
+        run: rm -rf src/app/api
+
       - name: Build static site
-        run: bun run build:pages
-        env:
-          GITHUB_PAGES: "true"
+        run: GITHUB_PAGES=true bun run build:pages
 
       - name: Add .nojekyll
         run: touch out/.nojekyll

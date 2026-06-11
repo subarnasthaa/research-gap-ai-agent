@@ -177,30 +177,93 @@ export default function UploadPanel() {
     setLinkError('');
 
     try {
-      const res = await fetch('/api/fetch-paper', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url }),
-      });
+      // Try backend API first (local dev)
+      try {
+        const res = await fetch('/api/fetch-paper', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url }),
+        });
 
-      const data = await res.json();
-
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to fetch paper');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success) {
+            const { extractPaperFromText } = await loadPdfExtractor();
+            const paper = extractPaperFromText(
+              data.title || 'Fetched Paper',
+              data.text || ''
+            );
+            paper.link = url;
+            paper.fileName = url;
+            store.addPaper(paper);
+            setLinkUrl('');
+            return;
+          }
+        }
+      } catch {
+        // Backend not available, try client-side fetch
       }
 
-      const { extractPaperFromText } = await loadPdfExtractor();
-      const paper = extractPaperFromText(
-        data.title || 'Fetched Paper',
-        data.text || ''
-      );
+      // Client-side fallback for GitHub Pages (no backend)
+      // Use arXiv API directly or CORS proxy for other URLs
+      if (url.includes('arxiv.org')) {
+        const arxivId = url.match(/(\d{4}\.\d{4,5}(?:v\d+)?)/)?.[1];
+        if (arxivId) {
+          // Use arXiv API (supports CORS)
+          const apiRes = await fetch(`https://export.arxiv.org/api/query?id_list=${arxivId}`);
+          if (apiRes.ok) {
+            const xml = await apiRes.text();
+            const titleMatch = xml.match(/<title>([\s\S]*?)<\/title>/i);
+            const summaryMatch = xml.match(/<summary>([\s\S]*?)<\/summary>/i);
+            const title = titleMatch ? titleMatch[1].trim() : 'Research Paper';
+            const abstract = summaryMatch ? summaryMatch[1].trim() : '';
 
-      // Attach source link
-      paper.link = url;
-      paper.fileName = url;
+            const { extractPaperFromText } = await loadPdfExtractor();
+            const paper = extractPaperFromText(title, abstract);
+            paper.link = url;
+            paper.fileName = url;
+            store.addPaper(paper);
+            setLinkUrl('');
+            return;
+          }
+        }
+      }
 
-      store.addPaper(paper);
-      setLinkUrl('');
+      // Try CORS proxy as last resort
+      try {
+        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+        const proxyRes = await fetch(proxyUrl);
+        if (proxyRes.ok) {
+          const html = await proxyRes.text();
+          const text = html
+            .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+            .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+            .replace(/<[^>]+>/g, ' ')
+            .replace(/&nbsp;/g, ' ')
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+          let title = 'Fetched Paper';
+          const titleMatch = html.match(/<title>([^<]+)<\/title>/i) ||
+            html.match(/<meta[^>]*name="citation_title"[^>]*content="([^"]+)"/i);
+          if (titleMatch) title = titleMatch[1].trim();
+
+          const { extractPaperFromText } = await loadPdfExtractor();
+          const paper = extractPaperFromText(title, text.substring(0, 50000));
+          paper.link = url;
+          paper.fileName = url;
+          store.addPaper(paper);
+          setLinkUrl('');
+          return;
+        }
+      } catch {
+        // CORS proxy failed
+      }
+
+      throw new Error('Could not fetch paper. Try uploading a PDF instead.');
     } catch (err) {
       setLinkError(err instanceof Error ? err.message : 'Failed to fetch paper from link');
     } finally {
